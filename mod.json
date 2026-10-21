@@ -1,0 +1,17 @@
+{
+	"geode": "5.11.2",
+	"gd": {
+		"win": "2.2081"
+	},
+	"version": "v1.3.0",
+	"id": "lilwc.predictivebufferhud",
+	"name": "Predictive Buffer HUD",
+	"developer": "lilWC",
+	"description": "Menu estilo Mega Hack dentro del juego (L-Ctrl para ocultar/mostrar) con ticks de buffer por vehiculo, colores personalizables e info de clicks para Predictive Input Buffer.",
+	"dependencies": {
+		"ai.predictivebuffer": {
+			"version": ">=1.0.0",
+			"importance": "required"
+		}
+	}
+}
