@@ -7,7 +7,7 @@ An in-game, Mega Hack–style menu for the **Predictive Input Buffer** Geode mod
 - **Mod ID:** `lilwc.predictivebufferhud`
 - **Geometry Dash:** 2.2081 (Windows)
 - **Geode:** 5.11.2
-- **Requires:** the base mod `ai.predictivebuffer`. A ready-to-use build is included in this repository: [`PredictiveBuffer_noconsole.geode`](PredictiveBuffer_noconsole.geode). **The HUD does not work without it** (see [Installation](#installation)).
+- **Requires:** the base mod `ai.predictivebuffer`. A ready-to-use build is included in this repository: [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode). **The HUD does not work without it** (see [Installation](#installation)).
 
 ---
 
@@ -36,7 +36,7 @@ The base mod keeps two limits in memory: one used while you are a wave and one f
 
 1. Install [Geode](https://geode-sdk.org/) for Geometry Dash 2.2081.
 2. Copy **both** files into your `geode/mods` folder:
-   - [`PredictiveBuffer_noconsole.geode`](PredictiveBuffer_noconsole.geode) (base mod, without the console window). **Required:** the HUD only draws the menu and controls the base mod, so without this file it shows "NO DATA" and does nothing.
+   - [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode) (base mod, without the console window). **Required:** the HUD only draws the menu and controls the base mod, so without this file it shows "NO DATA" and does nothing.
    - `lilwc.predictivebufferhud.geode` (this menu, from the GitHub Actions artifact or your own build)
 3. Start the game. The menu appears on the top left of the screen, on every screen and inside levels. Language is English by default; change it in *Interface → Language*.
 
@@ -69,7 +69,7 @@ Windows:
 2. Open the **Actions** tab and run **Build Predictive Buffer HUD** (it also runs on every push).
 3. When it finishes, download the `lilwc.predictivebufferhud` artifact. Inside is the `.geode` file.
 
-> Having `PredictiveBuffer_noconsole.geode` in the repository does **not** affect the build: CMake only compiles `src/*.cpp`, and the workflow only uploads the HUD `.geode` it generates. The base mod is never rebuilt; you just download it from the repository and put it next to the HUD in `geode/mods`.
+> Having `base_mod/PredictiveBuffer_noconsole.geode` in the repository does **not** affect the build: CMake only compiles `src/*.cpp`, and the workflow only uploads the HUD `.geode` it generates. The base mod is never rebuilt; you just download it from the repository and put it next to the HUD in `geode/mods`.
 
 **Locally:**
 
@@ -86,15 +86,14 @@ geode build
 src/main.cpp                      HUD source code (with English / Spanish texts)
 mod.json                          Geode metadata
 CMakeLists.txt                    build configuration
-PredictiveBuffer_noconsole.geode  base mod without the console window (REQUIRED, goes in geode/mods)
-base_mod/                         copy of the same base mod
+base_mod/                         base mod without the console window (REQUIRED, goes in geode/mods)
 patch_console.py                  script that removes the console from the base mod
 .github/workflows/build.yml       automatic build on GitHub
 ```
 
 ### Troubleshooting
 
-- **The menu says "NO DATA":** the base mod is not the expected build. Make sure `PredictiveBuffer_noconsole.geode` is in `geode/mods` and enabled; the HUD refuses to write to memory of an unknown version on purpose.
+- **The menu says "NO DATA":** the base mod is not the expected build. Make sure `base_mod/PredictiveBuffer_noconsole.geode` is in `geode/mods` and enabled; the HUD refuses to write to memory of an unknown version on purpose.
 - **I don't see the menu:** press `Left Ctrl` once; it may be hidden. Also check that both mods are enabled in Geode.
 - **The menu is in the wrong language:** *Interface* window → *Language*. The choice is saved.
 - **A window ended up off-screen or in a bad place:** set the scale to a smaller value, or drag it back by its title bar. Windows are kept inside the screen when you release them.
@@ -108,7 +107,7 @@ patch_console.py                  script that removes the console from the base 
 
 ### Credits
 
-- Base mod **Predictive Input Buffer** (`ai.predictivebuffer`), included as `PredictiveBuffer_noconsole.geode`.
+- Base mod **Predictive Input Buffer** (`ai.predictivebuffer`), included in `base_mod/`.
 - Built with the [Geode SDK](https://geode-sdk.org/).
 - Visual style inspired by the Mega Hack v9 menu.
 
@@ -123,7 +122,7 @@ Menú dentro del juego, al estilo Mega Hack, para el mod de Geode **Predictive I
 - **ID del mod:** `lilwc.predictivebufferhud`
 - **Geometry Dash:** 2.2081 (Windows)
 - **Geode:** 5.11.2
-- **Requiere:** el mod base `ai.predictivebuffer`. En este repositorio hay una versión lista para usar: [`PredictiveBuffer_noconsole.geode`](PredictiveBuffer_noconsole.geode). **El HUD no funciona sin él** (mira [Instalación](#instalación)).
+- **Requiere:** el mod base `ai.predictivebuffer`. En este repositorio hay una versión lista para usar: [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode). **El HUD no funciona sin él** (mira [Instalación](#instalación)).
 
 ### Características
 
@@ -148,7 +147,7 @@ El mod base guarda dos límites en memoria: uno que se usa cuando eres wave y ot
 
 1. Instala [Geode](https://geode-sdk.org/) para Geometry Dash 2.2081.
 2. Copia **los dos** archivos en tu carpeta `geode/mods`:
-   - [`PredictiveBuffer_noconsole.geode`](PredictiveBuffer_noconsole.geode) (mod base, sin ventana de consola). **Obligatorio:** el HUD solo dibuja el menú y controla el mod base, así que sin este archivo muestra "SIN DATOS" y no hace nada.
+   - [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode) (mod base, sin ventana de consola). **Obligatorio:** el HUD solo dibuja el menú y controla el mod base, así que sin este archivo muestra "SIN DATOS" y no hace nada.
    - `lilwc.predictivebufferhud.geode` (este menú, del artefacto de GitHub Actions o de tu propia compilación)
 3. Abre el juego. El menú aparece arriba a la izquierda, en todas las pantallas y dentro de los niveles. El idioma por defecto es inglés; cámbialo en *Interfaz → Idioma*.
 
@@ -181,7 +180,7 @@ Ventanas:
 2. Abre la pestaña **Actions** y ejecuta **Build Predictive Buffer HUD** (también se ejecuta solo en cada push).
 3. Cuando termine, descarga el artefacto `lilwc.predictivebufferhud`. Dentro está el archivo `.geode`.
 
-> Tener `PredictiveBuffer_noconsole.geode` en el repositorio **no** afecta a la compilación: CMake solo compila `src/*.cpp` y el workflow solo sube el `.geode` del HUD que genera. El mod base nunca se recompila; solo lo descargas del repositorio y lo pones junto al HUD en `geode/mods`.
+> Tener `base_mod/PredictiveBuffer_noconsole.geode` en el repositorio **no** afecta a la compilación: CMake solo compila `src/*.cpp` y el workflow solo sube el `.geode` del HUD que genera. El mod base nunca se recompila; solo lo descargas del repositorio y lo pones junto al HUD en `geode/mods`.
 
 **En local:**
 
@@ -198,15 +197,14 @@ geode build
 src/main.cpp                      código fuente del HUD (con textos en inglés / español)
 mod.json                          datos del mod para Geode
 CMakeLists.txt                    configuración de compilación
-PredictiveBuffer_noconsole.geode  mod base sin ventana de consola (OBLIGATORIO, va en geode/mods)
-base_mod/                         copia del mismo mod base
+base_mod/                         mod base sin ventana de consola (OBLIGATORIO, va en geode/mods)
 patch_console.py                  script que quita la consola del mod base
 .github/workflows/build.yml       compilación automática en GitHub
 ```
 
 ### Solución de problemas
 
-- **El menú dice "SIN DATOS":** el mod base no es la versión esperada. Comprueba que `PredictiveBuffer_noconsole.geode` esté en `geode/mods` y activado; el HUD se niega a escribir en la memoria de una versión desconocida a propósito.
+- **El menú dice "SIN DATOS":** el mod base no es la versión esperada. Comprueba que `base_mod/PredictiveBuffer_noconsole.geode` esté en `geode/mods` y activado; el HUD se niega a escribir en la memoria de una versión desconocida a propósito.
 - **No veo el menú:** pulsa `Ctrl izquierdo` una vez, puede estar oculto. Comprueba también que los dos mods estén activados en Geode.
 - **El menú está en otro idioma:** ventana *Interfaz* → *Idioma*. La elección se guarda.
 - **Una ventana quedó fuera de la pantalla o en mal sitio:** baja la escala o arrástrala de vuelta por su barra de título. Las ventanas se mantienen dentro de la pantalla al soltarlas.
@@ -220,6 +218,6 @@ patch_console.py                  script que quita la consola del mod base
 
 ### Créditos
 
-- Mod base **Predictive Input Buffer** (`ai.predictivebuffer`), incluido como `PredictiveBuffer_noconsole.geode`.
+- Mod base **Predictive Input Buffer** (`ai.predictivebuffer`), incluido en `base_mod/`.
 - Hecho con el [Geode SDK](https://geode-sdk.org/).
 - Estilo visual inspirado en el menú de Mega Hack v9.
