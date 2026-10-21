@@ -1,4 +1,4 @@
-// Predictive Buffer HUD v1.2 - menu estilo Mega Hack dentro del juego.
+// Predictive Buffer HUD v1.3 - menu estilo Mega Hack dentro del juego.
 // Lee/escribe el estado interno de ai.predictivebuffer (v4.7 "extended").
 // La DLL usa el limite "Wave" cuando el jugador es wave y el limite "All" en el resto;
 // este mod escribe esos dos valores cada frame segun el vehiculo actual.
@@ -14,6 +14,17 @@
 #include <cstdint>
 
 using namespace geode::prelude;
+
+namespace lang {
+    static inline bool es = false; // false = English (default), true = Espanol
+
+    static char const* tr(char const* en, char const* sp) { return es ? sp : en; }
+    static void load() { es = Mod::get()->getSavedValue<int>("ui-lang", 0) == 1; }
+    static void toggle() {
+        es = !es;
+        Mod::get()->setSavedValue<int>("ui-lang", es ? 1 : 0);
+    }
+}
 
 namespace buf {
     // RVAs dentro de ai.predictivebuffer.dll (VA - 0x180000000)
@@ -31,7 +42,8 @@ namespace buf {
 
     constexpr int VEH_COUNT = 8;
     constexpr int VEH_WAVE = 4;
-    constexpr char const* VEH_NAMES[VEH_COUNT] = {"Cubo", "Nave", "UFO", "Bola", "Wave", "Robot", "Arana", "Swing"};
+    constexpr char const* VEH_NAMES[VEH_COUNT]    = {"Cube", "Ship", "UFO", "Ball", "Wave", "Robot", "Spider", "Swing"};
+    constexpr char const* VEH_NAMES_ES[VEH_COUNT] = {"Cubo", "Nave", "UFO", "Bola", "Wave", "Robot", "Arana", "Swing"};
     constexpr char const* VEH_KEYS[VEH_COUNT] = {
         "tick-cube", "tick-ship", "tick-ufo", "tick-ball", "tick-wave", "tick-robot", "tick-spider", "tick-swing"};
 
@@ -229,6 +241,7 @@ protected:
     struct Row {
         Kind kind = Kind::Text;
         std::string label;
+        std::string labelEs;                 // etiqueta en espanol
         std::function<std::string()> text;   // Text: contenido dinamico
         std::function<std::string()> value;  // Stepper: numero mostrado
         std::function<bool()> on;            // Toggle: activo / Stepper: fila "actual"
@@ -241,6 +254,7 @@ protected:
 
     struct Win {
         std::string title;
+        std::string titleEs;                 // titulo en espanol
         std::string key;
         float w = 110.f;
         float x = 6.f, y = 6.f;              // esquina superior izquierda (y hacia abajo)
@@ -425,6 +439,7 @@ public:
     // ---------------- construccion ----------------
     bool init() override {
         if (!CCNode::init()) return false;
+        lang::load();
         m_shown = Mod::get()->getSavedValue<bool>("hud-visible", true);
         m_accent = ui::unpack(Mod::get()->getSavedValue<int>("ui-accent", ui::pack(ui::DEF_ACCENT)));
         m_gray = ui::unpack(Mod::get()->getSavedValue<int>("ui-gray", ui::pack(ui::DEF_GRAY)));
@@ -439,10 +454,10 @@ public:
     }
 
     void buildWindows() {
-        // ---- Ventana 1: Buffer ----
+        // ---- Window 1: Buffer ----
         {
-            Win w; w.title = "Buffer"; w.key = "buffer"; w.w = 124.f; w.x = 6.f;
-            Row t; t.kind = Kind::Toggle; t.label = "Buffer activo";
+            Win w; w.title = "Buffer"; w.titleEs = "Buffer"; w.key = "buffer"; w.w = 124.f; w.x = 6.f;
+            Row t; t.kind = Kind::Toggle; t.label = "Buffer active"; t.labelEs = "Buffer activo";
             t.on = [this] { return m_s.ok && m_s.idx != buf::OFF_IDX; };
             t.click = [this] {
                 if (!m_s.ok) return;
@@ -453,40 +468,41 @@ public:
             };
             w.rows.push_back(t);
             Row r1; r1.text = [this] {
-                if (!m_s.ok) return std::string("SIN DATOS (DLL distinta)");
+                if (!m_s.ok) return std::string(lang::tr("NO DATA (different DLL)", "SIN DATOS (DLL distinta)"));
                 int v = buf::currentVehicle();
-                return std::string("Vehiculo: ") + (v < 0 ? "-" : buf::VEH_NAMES[v]);
+                return std::string(lang::tr("Vehicle: ", "Vehiculo: ")) +
+                       (v < 0 ? "-" : (lang::es ? buf::VEH_NAMES_ES[v] : buf::VEH_NAMES[v]));
             };
             w.rows.push_back(r1);
             Row r2; r2.text = [this] {
                 int v = buf::currentVehicle();
-                if (v < 0) return std::string("Entra a un nivel");
+                if (v < 0) return std::string(lang::tr("Enter a level", "Entra a un nivel"));
                 bool on = m_s.ok && m_s.idx != buf::OFF_IDX;
-                return on ? ticksInfo(buf::ticksFor(v)) : std::string("Buffer desactivado");
+                return on ? ticksInfo(buf::ticksFor(v)) : std::string(lang::tr("Buffer disabled", "Buffer desactivado"));
             };
             w.rows.push_back(r2);
             Row r3; r3.text = [] {
                 auto pl = PlayLayer::get();
-                if (!pl || !pl->m_level) return std::string("Nivel: -");
+                if (!pl || !pl->m_level) return std::string(lang::tr("Level: -", "Nivel: -"));
                 std::string n = pl->m_level->m_levelName;
                 if (n.size() > 16) n = n.substr(0, 15) + ".";
-                return "Nivel: " + n;
+                return std::string(lang::tr("Level: ", "Nivel: ")) + n;
             };
             w.rows.push_back(r3);
             Row r4; r4.text = [] {
                 auto pl = PlayLayer::get();
-                if (!pl || !pl->m_level) return std::string("Progreso: -");
+                if (!pl || !pl->m_level) return std::string(lang::tr("Progress: -", "Progreso: -"));
                 return fmt::format("{}%  {}", static_cast<int>(pl->getCurrentPercent()),
-                                   pl->m_isPracticeMode ? "Practica" : "Normal");
+                                   pl->m_isPracticeMode ? lang::tr("Practice", "Practica") : "Normal");
             };
             w.rows.push_back(r4);
             m_wins.push_back(std::move(w));
         }
-        // ---- Ventana 2: Ticks por vehiculo ----
+        // ---- Window 2: Ticks per vehicle ----
         {
-            Win w; w.title = "Ticks"; w.key = "ticks"; w.w = 96.f; w.x = 136.f;
+            Win w; w.title = "Ticks"; w.titleEs = "Ticks"; w.key = "ticks"; w.w = 96.f; w.x = 136.f;
             for (int i = 0; i < buf::VEH_COUNT; i++) {
-                Row r; r.kind = Kind::Stepper; r.label = buf::VEH_NAMES[i];
+                Row r; r.kind = Kind::Stepper; r.label = buf::VEH_NAMES[i]; r.labelEs = buf::VEH_NAMES_ES[i];
                 r.value = [i] { return std::to_string(buf::ticksFor(i)); };
                 r.on = [i] { return buf::currentVehicle() == i; };
                 r.step = [i](int d) { buf::stepTicks(i, d); };
@@ -494,11 +510,11 @@ public:
             }
             m_wins.push_back(std::move(w));
         }
-        // ---- Ventana 3: Click bufferizado ----
+        // ---- Window 3: Buffered click ----
         {
-            Win w; w.title = "Click bufferizado"; w.key = "clicks"; w.w = 138.f; w.x = 238.f;
+            Win w; w.title = "Buffered click"; w.titleEs = "Click bufferizado"; w.key = "clicks"; w.w = 138.f; w.x = 238.f;
             Row a; a.text = [this] {
-                if (m_hist.empty()) return std::string("Esperando click...");
+                if (m_hist.empty()) return std::string(lang::tr("Waiting for click...", "Esperando click..."));
                 auto& e = m_hist.front();
                 return fmt::format("{}  +{} ticks", e.press ? "PRESS" : "RELEASE", e.ticks);
             };
@@ -506,57 +522,70 @@ public:
             Row b; b.text = [this] {
                 if (m_hist.empty()) return std::string("-");
                 auto& e = m_hist.front();
-                return fmt::format("{:.2f} f ({:.1f} ms) hace {:.1f}s", e.ticks / buf::TICKS_PER_FRAME,
-                                   e.ticks * buf::MS_PER_TICK, m_time - m_lastEventTime);
+                return lang::es
+                    ? fmt::format("{:.2f} f ({:.1f} ms) hace {:.1f}s", e.ticks / buf::TICKS_PER_FRAME,
+                                  e.ticks * buf::MS_PER_TICK, m_time - m_lastEventTime)
+                    : fmt::format("{:.2f} f ({:.1f} ms) {:.1f}s ago", e.ticks / buf::TICKS_PER_FRAME,
+                                  e.ticks * buf::MS_PER_TICK, m_time - m_lastEventTime);
             };
             w.rows.push_back(b);
             Row c; c.text = [this] {
-                return m_total == 0 ? std::string("Total: 0")
-                    : fmt::format("Total {}  Media {:.1f}  Max {}", m_total, float(m_sum) / m_total, m_max);
+                if (m_total == 0) return std::string("Total: 0");
+                return lang::es
+                    ? fmt::format("Total {}  Media {:.1f}  Max {}", m_total, float(m_sum) / m_total, m_max)
+                    : fmt::format("Total {}  Avg {:.1f}  Max {}", m_total, float(m_sum) / m_total, m_max);
             };
             w.rows.push_back(c);
             for (int i = 0; i < 4; i++) {
                 Row h; h.text = [this, i] {
                     if (i >= static_cast<int>(m_hist.size())) return std::string("-");
                     auto& e = m_hist[i];
-                    return fmt::format("{:<7} +{:>2}t  hace {:.0f}s", e.press ? "PRESS" : "RELEASE", e.ticks, m_time - e.t);
+                    return lang::es
+                        ? fmt::format("{:<7} +{:>2}t  hace {:.0f}s", e.press ? "PRESS" : "RELEASE", e.ticks, m_time - e.t)
+                        : fmt::format("{:<7} +{:>2}t  {:.0f}s ago", e.press ? "PRESS" : "RELEASE", e.ticks, m_time - e.t);
                 };
                 w.rows.push_back(h);
             }
             m_wins.push_back(std::move(w));
         }
-        // ---- Ventana 4: Interfaz (colores y escala) ----
+        // ---- Window 4: Interface (colors, scale, language) ----
         {
-            Win w; w.title = "Interfaz"; w.key = "ui"; w.w = 104.f; w.x = 382.f;
-            Row c1; c1.kind = Kind::Color; c1.label = "Color principal";
+            Win w; w.title = "Interface"; w.titleEs = "Interfaz"; w.key = "ui"; w.w = 104.f; w.x = 382.f;
+            Row c1; c1.kind = Kind::Color; c1.label = "Main color"; c1.labelEs = "Color principal";
             c1.color = [this] { return m_accent; };
             c1.click = [this] { openPicker(0); };
             w.rows.push_back(c1);
-            Row c2; c2.kind = Kind::Color; c2.label = "Color gris";
+            Row c2; c2.kind = Kind::Color; c2.label = "Gray color"; c2.labelEs = "Color gris";
             c2.color = [this] { return m_gray; };
             c2.click = [this] { openPicker(1); };
             w.rows.push_back(c2);
-            Row rs; rs.kind = Kind::Button; rs.label = "Restablecer colores";
+            Row rs; rs.kind = Kind::Button; rs.label = "Reset colors"; rs.labelEs = "Restablecer colores";
             rs.click = [this] { setAccent(ui::DEF_ACCENT); setGray(ui::DEF_GRAY); };
             w.rows.push_back(rs);
-            Row sc; sc.kind = Kind::Stepper; sc.label = "Escala";
+            Row sc; sc.kind = Kind::Stepper; sc.label = "Scale"; sc.labelEs = "Escala";
             sc.value = [this] { return fmt::format("{:g}x", ui::SCALES[m_scaleIdx]); };
             sc.step = [this](int d) {
                 m_scaleIdx = std::clamp(m_scaleIdx + d, 0, ui::SCALE_COUNT - 1);
                 Mod::get()->setSavedValue<int>("ui-scale", m_scaleIdx);
             };
             w.rows.push_back(sc);
-            Row hint; hint.text = [] { return std::string("L-Ctrl: ocultar menu"); };
+            Row lg; lg.kind = Kind::Button; lg.label = "Language: English"; lg.labelEs = "Idioma: Espanol";
+            lg.click = [] { lang::toggle(); };
+            w.rows.push_back(lg);
+            Row hint; hint.text = [] { return std::string(lang::tr("L-Ctrl: hide menu", "L-Ctrl: ocultar menu")); };
             w.rows.push_back(hint);
             m_wins.push_back(std::move(w));
         }
-        // ---- Ventana 5: rueda de colores (oculta hasta pulsar un color) ----
+        // ---- Window 5: color wheel (hidden until a color is clicked) ----
         {
-            Win w; w.title = "Rueda de color"; w.key = "picker"; w.w = ui::PW; w.x = 382.f; w.y = 80.f;
+            Win w; w.title = "Color wheel"; w.titleEs = "Rueda de color"; w.key = "picker"; w.w = ui::PW; w.x = 382.f; w.y = 80.f;
             w.picker = true; w.hidden = true; w.extraH = ui::PEXTRA;
-            Row e; e.text = [this] { return std::string("Editando: ") + (m_editing == 0 ? "principal" : "gris"); };
+            Row e; e.text = [this] {
+                return std::string(lang::tr("Editing: ", "Editando: ")) +
+                       (m_editing == 0 ? lang::tr("main", "principal") : lang::tr("gray", "gris"));
+            };
             w.rows.push_back(e);
-            Row c; c.kind = Kind::Button; c.label = "Cerrar";
+            Row c; c.kind = Kind::Button; c.label = "Close"; c.labelEs = "Cerrar";
             c.click = [this] { closePicker(); };
             w.rows.push_back(c);
             m_pickIdx = static_cast<int>(m_wins.size());
@@ -854,6 +883,12 @@ public:
         this->setPosition(ccp(0.f, win.height));
 
         for (auto& w : m_wins) {
+            // idioma: actualiza titulo y etiquetas fijas
+            setText(w.titleLbl, (lang::es && !w.titleEs.empty()) ? w.titleEs : w.title);
+            for (auto& r : w.rows) {
+                if (r.kind == Kind::Text || !r.lbl) continue;
+                setText(r.lbl, (lang::es && !r.labelEs.empty()) ? r.labelEs : r.label);
+            }
             uint64_t sig = 1469598103934665603ull;
             auto mixs = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
             mixs(ui::pack(m_accent)); mixs(ui::pack(m_gray));
