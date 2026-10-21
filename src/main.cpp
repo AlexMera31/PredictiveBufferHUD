@@ -231,6 +231,35 @@ static std::string ticksInfo(int t) {
     return fmt::format("{} ticks = {:.2f} f ({:.1f} ms)", t, t / buf::TICKS_PER_FRAME, t * buf::MS_PER_TICK);
 }
 
+// Nombre legible de una tecla virtual de Windows.
+static std::string keyName(int vk) {
+    switch (vk) {
+        case 0: return lang::tr("None", "Ninguna");
+        case VK_LCONTROL: return "L-Ctrl";
+        case VK_RCONTROL: return "R-Ctrl";
+        case VK_LSHIFT:   return "L-Shift";
+        case VK_RSHIFT:   return "R-Shift";
+        case VK_LMENU:    return "L-Alt";
+        case VK_RMENU:    return "R-Alt";
+        case VK_LWIN:     return "L-Win";
+        case VK_RWIN:     return "R-Win";
+        case VK_SPACE:    return "Space";
+        case VK_RETURN:   return "Enter";
+        case VK_TAB:      return "Tab";
+        case VK_BACK:     return "Backspace";
+        case VK_CAPITAL:  return "CapsLock";
+        default: break;
+    }
+    UINT sc = MapVirtualKeyA(static_cast<UINT>(vk), MAPVK_VK_TO_VSC);
+    bool ext = vk == VK_UP || vk == VK_DOWN || vk == VK_LEFT || vk == VK_RIGHT || vk == VK_INSERT ||
+               vk == VK_DELETE || vk == VK_HOME || vk == VK_END || vk == VK_PRIOR || vk == VK_NEXT ||
+               vk == VK_DIVIDE || vk == VK_NUMLOCK;
+    LONG lp = static_cast<LONG>((sc << 16) | (ext ? (1 << 24) : 0));
+    char name[64] = {0};
+    if (sc != 0 && GetKeyNameTextA(lp, name, sizeof(name)) > 0) return name;
+    return fmt::format("Key {:#x}", vk);
+}
+
 class BufferHud : public CCNode, public CCTouchDelegate {
 protected:
     static inline BufferHud* s_instance = nullptr;
@@ -292,7 +321,12 @@ protected:
     CCPoint m_dragTouch0, m_dragWin0;
 
     bool  m_shown = true;
-    bool  m_ctrlWasDown = false;
+    int   m_keyMenu = VK_LCONTROL;           // tecla para mostrar / ocultar el menu
+    int   m_keyToggle = VK_F7;               // tecla para activar / desactivar el buffer (0 = ninguna)
+    int   m_listen = 0;                      // 0 = nada, 1 = esperando tecla del menu, 2 = tecla del buffer
+    bool  m_listenArmed = false;             // true cuando ya se soltaron todas las teclas
+    bool  m_menuWasDown = false;
+    bool  m_toggleWasDown = false;
     float m_time = 0.f;
     float m_lastEventTime = -100.f;
     int   m_prevLast = -1;
@@ -436,6 +470,58 @@ public:
         commitPick();
     }
 
+    // ---------------- teclas ----------------
+    static bool keyDown(int vk) {
+        return vk != 0 && gdFocused() && (GetAsyncKeyState(vk) & 0x8000);
+    }
+
+    // primera tecla del teclado que esta pulsada (ignora el raton y los modificadores genericos)
+    static int scanKey() {
+        for (int vk = 0x08; vk < 0xFF; vk++) {
+            if (vk == VK_SHIFT || vk == VK_CONTROL || vk == VK_MENU) continue;
+            if (GetAsyncKeyState(vk) & 0x8000) return vk;
+        }
+        return 0;
+    }
+
+    void startListen(int which) {
+        m_listen = (m_listen == which) ? 0 : which;   // segundo click en la misma fila: cancelar
+        m_listenArmed = false;
+    }
+
+    void toggleBuffer() {
+        if (!m_s.ok) return;
+        int n = (m_s.idx == buf::OFF_IDX) ? 0 : buf::OFF_IDX;
+        buf::writeIdx(n);
+        m_s.idx = n;
+        m_prevIdx = n;
+    }
+
+    // mientras se espera una tecla nueva: Esc cancela, Backspace quita la tecla del buffer
+    void handleListen() {
+        if (!gdFocused()) return;
+        if (!m_listenArmed) {                          // esperar a que se suelte todo (el click que abrio la espera)
+            if (!scanKey()) m_listenArmed = true;
+            return;
+        }
+        int vk = scanKey();
+        if (!vk) return;
+        if (vk == VK_ESCAPE) { m_listen = 0; return; }
+        if (m_listen == 1) {
+            m_keyMenu = vk;
+            if (m_keyToggle == vk) { m_keyToggle = 0; Mod::get()->setSavedValue<int>("key-toggle", 0); }
+            Mod::get()->setSavedValue<int>("key-menu", vk);
+        } else if (m_listen == 2) {
+            if (vk == VK_BACK) vk = 0;                 // sin tecla
+            if (vk == m_keyMenu) { m_listen = 0; return; }   // esa tecla ya abre el menu
+            m_keyToggle = vk;
+            Mod::get()->setSavedValue<int>("key-toggle", vk);
+        }
+        m_listen = 0;
+        m_menuWasDown = true;                          // evita que la tecla recien asignada dispare la accion
+        m_toggleWasDown = true;
+    }
+
     // ---------------- construccion ----------------
     bool init() override {
         if (!CCNode::init()) return false;
@@ -445,6 +531,10 @@ public:
         m_gray = ui::unpack(Mod::get()->getSavedValue<int>("ui-gray", ui::pack(ui::DEF_GRAY)));
         m_scaleIdx = std::clamp(Mod::get()->getSavedValue<int>("ui-scale", 1), 0, ui::SCALE_COUNT - 1);
         buf::loadTicks();
+        m_keyMenu = Mod::get()->getSavedValue<int>("key-menu", VK_LCONTROL);
+        m_keyToggle = Mod::get()->getSavedValue<int>("key-toggle", VK_F7);
+        if (m_keyMenu <= 0 || m_keyMenu >= 0xFF) m_keyMenu = VK_LCONTROL;
+        if (m_keyToggle < 0 || m_keyToggle >= 0xFF || m_keyToggle == m_keyMenu) m_keyToggle = 0;
         auto s = buf::read();
         m_prevLast = s.last;
         m_prevIdx = s.ok ? s.idx : 0;
@@ -459,13 +549,14 @@ public:
             Win w; w.title = "Buffer"; w.titleEs = "Buffer"; w.key = "buffer"; w.w = 124.f; w.x = 6.f;
             Row t; t.kind = Kind::Toggle; t.label = "Buffer active"; t.labelEs = "Buffer activo";
             t.on = [this] { return m_s.ok && m_s.idx != buf::OFF_IDX; };
-            t.click = [this] {
-                if (!m_s.ok) return;
-                int n = (m_s.idx == buf::OFF_IDX) ? 0 : buf::OFF_IDX;
-                buf::writeIdx(n);
-                m_s.idx = n;
-                m_prevIdx = n;
+            t.text = [this] {
+                bool on = m_s.ok && m_s.idx != buf::OFF_IDX;
+                std::string r = on ? lang::tr("Buffer: ON", "Buffer: ACTIVADO")
+                                   : lang::tr("Buffer: OFF", "Buffer: DESACTIVADO");
+                if (m_keyToggle) r += " [" + keyName(m_keyToggle) + "]";
+                return r;
             };
+            t.click = [this] { toggleBuffer(); };
             w.rows.push_back(t);
             Row r1; r1.text = [this] {
                 if (!m_s.ok) return std::string(lang::tr("NO DATA (different DLL)", "SIN DATOS (DLL distinta)"));
@@ -550,7 +641,7 @@ public:
         }
         // ---- Window 4: Interface (colors, scale, language) ----
         {
-            Win w; w.title = "Interface"; w.titleEs = "Interfaz"; w.key = "ui"; w.w = 104.f; w.x = 382.f;
+            Win w; w.title = "Interface"; w.titleEs = "Interfaz"; w.key = "ui"; w.w = 150.f; w.x = 382.f;
             Row c1; c1.kind = Kind::Color; c1.label = "Main color"; c1.labelEs = "Color principal";
             c1.color = [this] { return m_accent; };
             c1.click = [this] { openPicker(0); };
@@ -574,8 +665,22 @@ public:
             w.rows.push_back(lg);
             Row wm; wm.text = [] { return std::string("HUD by AlexMera"); };
             w.rows.push_back(wm);
-            Row hint; hint.text = [] { return std::string(lang::tr("L-Ctrl: hide menu", "L-Ctrl: ocultar menu")); };
-            w.rows.push_back(hint);
+            Row kMenu; kMenu.kind = Kind::Button;
+            kMenu.on = [this] { return m_listen == 1; };
+            kMenu.text = [this] {
+                if (m_listen == 1) return std::string(lang::tr("Press a key... (Esc: cancel)", "Pulsa una tecla... (Esc: cancelar)"));
+                return keyName(m_keyMenu) + std::string(lang::tr(": hide menu (click to change)", ": ocultar menu (click para cambiar)"));
+            };
+            kMenu.click = [this] { startListen(1); };
+            w.rows.push_back(kMenu);
+            Row kTog; kTog.kind = Kind::Button;
+            kTog.on = [this] { return m_listen == 2; };
+            kTog.text = [this] {
+                if (m_listen == 2) return std::string(lang::tr("Press a key... (Esc: cancel, Bksp: none)", "Pulsa una tecla... (Esc: cancelar, Bksp: ninguna)"));
+                return keyName(m_keyToggle) + std::string(lang::tr(": toggle buffer (click to change)", ": activar buffer (click para cambiar)"));
+            };
+            kTog.click = [this] { startListen(2); };
+            w.rows.push_back(kTog);
             m_wins.push_back(std::move(w));
         }
         // ---- Window 5: color wheel (hidden until a color is clicked) ----
@@ -734,7 +839,8 @@ public:
                     }
                     break;
                 case Kind::Button:
-                    ui::rrect(d, 3.f, top - 1.2f, W - 6.f, ui::ROW_H - 2.4f, 2.6f, ui::c4f(ui::lighten(m_gray, 0.10f), 1.f));
+                    ui::rrect(d, 3.f, top - 1.2f, W - 6.f, ui::ROW_H - 2.4f, 2.6f,
+                              on ? ui::c4f(m_accent, 1.f) : ui::c4f(ui::lighten(m_gray, 0.10f), 1.f));
                     break;
                 default: break;
             }
@@ -889,6 +995,7 @@ public:
             setText(w.titleLbl, (lang::es && !w.titleEs.empty()) ? w.titleEs : w.title);
             for (auto& r : w.rows) {
                 if (r.kind == Kind::Text || !r.lbl) continue;
+                if (r.text) { setText(r.lbl, r.text()); continue; }   // etiqueta dinamica (botones de tecla, buffer ON/OFF)
                 setText(r.lbl, (lang::es && !r.labelEs.empty()) ? r.labelEs : r.label);
             }
             uint64_t sig = 1469598103934665603ull;
@@ -909,6 +1016,9 @@ public:
                     case Kind::Color:
                         if (r.color) mixs(ui::pack(r.color()));
                         break;
+                    case Kind::Button:
+                        mixs(r.on && r.on() ? 1 : 0);
+                        break;
                     default: break;
                 }
             }
@@ -922,17 +1032,30 @@ public:
     void tick(float dt) {
         m_time += dt;
 
-        // L-Ctrl: mostrar / ocultar todo el menu
-        bool down = gdFocused() && (GetAsyncKeyState(VK_LCONTROL) & 0x8000);
-        if (down && !m_ctrlWasDown) {
-            m_shown = !m_shown;
-            Mod::get()->setSavedValue("hud-visible", m_shown);
-            this->setVisible(m_shown);
-            if (m_shown) for (auto& w : m_wins) w.anim = 0.f;   // al mostrar el menu las ventanas se despliegan
+        if (m_listen != 0 && !m_shown) m_listen = 0;
+        if (m_listen != 0) {
+            handleListen();                                      // esperando una tecla nueva: sin atajos
+        } else {
+            // tecla del menu: mostrar / ocultar todo el menu
+            bool down = keyDown(m_keyMenu);
+            if (down && !m_menuWasDown) {
+                m_shown = !m_shown;
+                Mod::get()->setSavedValue("hud-visible", m_shown);
+                this->setVisible(m_shown);
+                if (m_shown) for (auto& w : m_wins) w.anim = 0.f;   // al mostrar el menu las ventanas se despliegan
+            }
+            m_menuWasDown = down;
         }
-        m_ctrlWasDown = down;
 
         m_s = buf::read();
+
+        // tecla del buffer: activar / desactivar el input buffer
+        if (m_listen == 0) {
+            bool tdown = keyDown(m_keyToggle);
+            if (tdown && !m_toggleWasDown) toggleBuffer();
+            m_toggleWasDown = tdown;
+        }
+
         if (m_s.ok) {
             // F6 (de la DLL) sigue funcionando: lo convertimos en ON/OFF (stage 1 <-> OFF)
             if (m_s.idx != m_prevIdx) {
