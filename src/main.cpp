@@ -147,7 +147,7 @@ namespace ui {
     constexpr float FONT_S  = 0.40f;
     constexpr char const* FONT = "chatFont.fnt";
 
-    constexpr ccColor3B DEF_ACCENT = {36, 124, 255};   // azul por defecto (antes rojo en Mega Hack)
+    constexpr ccColor3B DEF_ACCENT = {36, 124, 255};   // azul por defecto 
     constexpr ccColor3B DEF_GRAY   = {72, 72, 72};     // gris por defecto
     constexpr float SCALES[] = {0.75f, 1.f, 1.25f, 1.5f, 2.f};
     constexpr int SCALE_COUNT = 5;
@@ -572,6 +572,8 @@ public:
             Row lg; lg.kind = Kind::Button; lg.label = "Language: English"; lg.labelEs = "Idioma: Espanol";
             lg.click = [] { lang::toggle(); };
             w.rows.push_back(lg);
+            Row wm; wm.text = [] { return std::string("HUD by AlexMera"); };
+            w.rows.push_back(wm);
             Row hint; hint.text = [] { return std::string(lang::tr("L-Ctrl: hide menu", "L-Ctrl: ocultar menu")); };
             w.rows.push_back(hint);
             m_wins.push_back(std::move(w));
