@@ -1,10 +1,12 @@
-// Predictive Buffer HUD v1.3 - menu estilo Mega Hack dentro del juego.
-// Lee/escribe el estado interno de ai.predictivebuffer (v4.7 "extended").
-// La DLL usa el limite "Wave" cuando el jugador es wave y el limite "All" en el resto;
-// este mod escribe esos dos valores cada frame segun el vehiculo actual.
+// Predictive Buffer HUD v2.0 - menu estilo Mega Hack dentro del juego.
+// Ahora el motor del Predictive Input Buffer (PredictiveBuffer.cpp) va dentro de este mismo mod.
+// El motor usa el limite "Wave" cuando el jugador es wave y el limite "All" en el resto;
+// el HUD escribe esos dos valores cada frame segun el vehiculo actual (pbuf::g).
 #include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
+#include <Windows.h>
+#include "PredictiveBuffer.hpp"
 #include <deque>
 #include <functional>
 #include <string>
@@ -27,15 +29,7 @@ namespace lang {
 }
 
 namespace buf {
-    // RVAs dentro de ai.predictivebuffer.dll (VA - 0x180000000)
-    constexpr size_t RVA_IDX   = 0x21908; // u32  stage actual (9 = OFF)
-    constexpr size_t RVA_FLAG  = 0x2190c; // u8   buffer activo
-    constexpr size_t RVA_ALL   = 0x21910; // u32  limite "All" en ticks (todo menos wave)
-    constexpr size_t RVA_WAVE  = 0x21914; // u32  limite "Wave" en ticks
-    constexpr size_t RVA_LAST  = 0x21918; // i32  ultimos ticks ahorrados (-1/-2 = nada)
-    constexpr size_t RVA_PRESS = 0x2191c; // u8   1 = PRESS, 0 = RELEASE
-    constexpr DWORD  IMAGE_SIZE = 0x28000; // guarda de version de la DLL
-    constexpr int    OFF_IDX = 9;
+    constexpr int OFF_IDX = pbuf::OFF_IDX;
 
     constexpr float TICKS_PER_FRAME = 4.f;           // 240 ticks/s a 60 fps
     constexpr float MS_PER_TICK     = 1000.f / 240.f;
@@ -52,49 +46,33 @@ namespace buf {
     constexpr int STEP_COUNT = sizeof(STEPS) / sizeof(STEPS[0]);
 
     struct State {
-        bool ok = false;
+        bool ok = true;              // el motor va dentro del mod: siempre hay datos
         int  idx = 0;
         bool active = false;
         int  all = 0, wave = 0;
         int  last = -1;
         bool press = true;
+        uint32_t seq = 0;
     };
-
-    static uint8_t* base() {
-        HMODULE h = GetModuleHandleA("ai.predictivebuffer.dll");
-        if (!h) return nullptr;
-        auto b = reinterpret_cast<uint8_t*>(h);
-        auto dos = reinterpret_cast<IMAGE_DOS_HEADER*>(b);
-        auto nt  = reinterpret_cast<IMAGE_NT_HEADERS64*>(b + dos->e_lfanew);
-        if (nt->OptionalHeader.SizeOfImage != IMAGE_SIZE) return nullptr;
-        return b;
-    }
 
     static State read() {
         State s;
-        auto b = base();
-        if (!b) return s;
-        s.idx    = *reinterpret_cast<volatile uint32_t*>(b + RVA_IDX);
-        s.active = *reinterpret_cast<volatile uint8_t*>(b + RVA_FLAG) != 0;
-        s.all    = *reinterpret_cast<volatile uint32_t*>(b + RVA_ALL);
-        s.wave   = *reinterpret_cast<volatile uint32_t*>(b + RVA_WAVE);
-        s.last   = *reinterpret_cast<volatile int32_t*>(b + RVA_LAST);
-        s.press  = *reinterpret_cast<volatile uint8_t*>(b + RVA_PRESS) != 0;
-        if (s.idx < 0 || s.idx > OFF_IDX) return s;
-        s.ok = true;
+        s.idx    = static_cast<int>(pbuf::g.idx);
+        s.active = pbuf::g.flag != 0;
+        s.all    = static_cast<int>(pbuf::g.all);
+        s.wave   = static_cast<int>(pbuf::g.wave);
+        s.last   = pbuf::g.last;
+        s.press  = pbuf::g.press != 0;
+        s.seq    = pbuf::g.seq;
         return s;
     }
 
-    static void writeIdx(uint32_t idx) {
-        if (auto b = base()) *reinterpret_cast<volatile uint32_t*>(b + RVA_IDX) = idx;
-    }
+    static void writeIdx(uint32_t idx) { pbuf::g.idx = idx; }
 
     static void writeLimits(uint32_t all, uint32_t wave, bool flag) {
-        auto b = base();
-        if (!b) return;
-        *reinterpret_cast<volatile uint32_t*>(b + RVA_ALL) = all;
-        *reinterpret_cast<volatile uint32_t*>(b + RVA_WAVE) = wave;
-        *reinterpret_cast<volatile uint8_t*>(b + RVA_FLAG) = flag ? 1 : 0;
+        pbuf::g.all = all;
+        pbuf::g.wave = wave;
+        pbuf::g.flag = flag ? 1 : 0;
     }
 
     // ---- ticks por vehiculo (se guardan en los datos guardados del mod) ----
@@ -329,7 +307,8 @@ protected:
     bool  m_toggleWasDown = false;
     float m_time = 0.f;
     float m_lastEventTime = -100.f;
-    int   m_prevLast = -1;
+    uint32_t m_prevSeq = 0;
+    bool  m_f6WasDown = false;
     int   m_prevIdx = 0;
     std::deque<Ev> m_hist;
     int   m_total = 0, m_sum = 0, m_max = 0;
@@ -536,7 +515,7 @@ public:
         if (m_keyMenu <= 0 || m_keyMenu >= 0xFF) m_keyMenu = VK_LCONTROL;
         if (m_keyToggle < 0 || m_keyToggle >= 0xFF || m_keyToggle == m_keyMenu) m_keyToggle = 0;
         auto s = buf::read();
-        m_prevLast = s.last;
+        m_prevSeq = s.seq;
         m_prevIdx = s.ok ? s.idx : 0;
         buildWindows();
         this->setVisible(m_shown);
@@ -1056,14 +1035,14 @@ public:
             m_toggleWasDown = tdown;
         }
 
+        // F6 sigue funcionando como ON/OFF (como en el mod original), salvo que lo uses como otra tecla del HUD
+        if (m_listen == 0) {
+            bool f6 = m_keyMenu != VK_F6 && m_keyToggle != VK_F6 && keyDown(VK_F6);
+            if (f6 && !m_f6WasDown) toggleBuffer();
+            m_f6WasDown = f6;
+        }
+
         if (m_s.ok) {
-            // F6 (de la DLL) sigue funcionando: lo convertimos en ON/OFF (stage 1 <-> OFF)
-            if (m_s.idx != m_prevIdx) {
-                int n = (m_prevIdx == buf::OFF_IDX) ? 0 : buf::OFF_IDX;
-                buf::writeIdx(n);
-                m_s.idx = n;
-                m_prevIdx = n;
-            }
 
             // ticks segun el vehiculo actual
             bool on = m_s.idx != buf::OFF_IDX;
@@ -1074,10 +1053,10 @@ public:
             uint32_t activeT = (cur == buf::VEH_WAVE) ? waveT : allT;
             buf::writeLimits(allT, waveT, on && activeT != 0);
 
-            // detectar click bufferizado (mismo criterio que el log de la consola original)
-            if (m_s.last != m_prevLast) {
+            // detectar click bufferizado (el motor sube el contador seq en cada uno)
+            if (m_s.seq != m_prevSeq) {
                 if (m_s.last > 0) pushEvent(m_s.last, m_s.press);
-                m_prevLast = m_s.last;
+                m_prevSeq = m_s.seq;
             }
         }
 

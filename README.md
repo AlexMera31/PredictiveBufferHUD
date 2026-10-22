@@ -4,10 +4,10 @@
 
 An in-game, Mega Hack–style menu for the **Predictive Input Buffer** Geode mod (Geometry Dash, Windows). It lets you set how many ticks of buffer each vehicle gets, turn the buffer on and off with a click, watch the buffered clicks live, and customize the menu colors with a color wheel. The menu is available in **English (default)** and **Spanish**.
 
-- **Mod ID:** `lilwc.predictivebufferhud`
+- **Mod ID:** `alexmera.predictivebufferhud`
 - **Geometry Dash:** 2.2081 (Windows)
 - **Geode:** 5.11.2
-- **Requires:** the base mod `ai.predictivebuffer`. A ready-to-use build is included in this repository: [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode). **The HUD does not work without it** (see [Installation](#installation)).
+- **Requires:** nothing else. The Predictive Input Buffer engine is now built into this mod. **Uninstall `ai.predictivebuffer` if you have it** (the two conflict).
 
 ---
 
@@ -19,7 +19,7 @@ An in-game, Mega Hack–style menu for the **Predictive Input Buffer** Geode mod
 - **Ticks per vehicle:** Cube, Ship, UFO, Ball, Wave, Robot, Spider and Swing each have their own value. Use the two arrows on the left of the number: ▲ goes up, ▼ goes down.
   - Steps: `0 → 2 → 4 → 8 → 16 → 24 → 32 → 48 → 54 → 60` (0 = no buffer for that vehicle).
   - The row of the vehicle you are currently playing is highlighted.
-- **Click to toggle:** the *Buffer active* row turns the buffer on and off with a single click. The row lights up in the main color when it is on. `F6` (from the base mod) also works.
+- **Click to toggle:** the *Buffer active* row turns the buffer on and off with a single click. The row lights up in the main color when it is on. `F6` also works, and you can set your own key (default `F7`).
 - **Buffered click info:** last click (PRESS / RELEASE), ticks saved, frames and milliseconds, total / average / maximum, and a short history.
 - **Custom colors:** the main color (blue by default) and the gray color (gray by default) can be changed with a built-in color wheel plus a brightness slider. A button restores the defaults.
 - **Language selector:** switch the whole menu between **English** (default) and **Español** from the *Interface* window.
@@ -28,16 +28,14 @@ An in-game, Mega Hack–style menu for the **Predictive Input Buffer** Geode mod
 
 ### How it works
 
-The base mod keeps two limits in memory: one used while you are a wave and one for every other vehicle. This HUD detects your current vehicle every frame and writes the right value into those two limits. The base mod itself is not modified, which is why you only need to rebuild the HUD when you change something here.
+The mod contains the Predictive Input Buffer engine (by AlexMera) and the HUD in the same `.geode`. Two limits are used: one while you are a wave and one for every other vehicle. The HUD detects your current vehicle every frame and sets the right value for the engine.
 
 > 4 ticks = 1 frame at 60 FPS (the game runs at 240 ticks per second).
 
 ### Installation
 
 1. Install [Geode](https://geode-sdk.org/) for Geometry Dash 2.2081.
-2. Copy **both** files into your `geode/mods` folder:
-   - [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode) (base mod, without the console window). **Required:** the HUD only draws the menu and controls the base mod, so without this file it shows "NO DATA" and does nothing.
-   - `lilwc.predictivebufferhud.geode` (this menu, from the GitHub Actions artifact or your own build)
+2. Copy `alexmera.predictivebufferhud.geode` (engine + menu, from the release or the GitHub Actions artifact) into your `geode/mods` folder. It is the only file you need. If you have the old `ai.predictivebuffer` mod, delete it.
 3. Start the game. The menu appears on the top left of the screen, on every screen and inside levels. Language is English by default; change it in *Interface → Language*.
 
 ### Usage
@@ -67,9 +65,9 @@ Windows:
 
 1. Push this repository to GitHub (branch `main`).
 2. Open the **Actions** tab and run **Build Predictive Buffer HUD** (it also runs on every push).
-3. When it finishes, download the `lilwc.predictivebufferhud` artifact. Inside is the `.geode` file.
+3. When it finishes, download the `alexmera.predictivebufferhud` artifact. Inside is the `.geode` file.
 
-> Having `base_mod/PredictiveBuffer_noconsole.geode` in the repository does **not** affect the build: CMake only compiles `src/*.cpp`, and the workflow only uploads the HUD `.geode` it generates. The base mod is never rebuilt; you just download it from the repository and put it next to the HUD in `geode/mods`.
+> The mod is built from `src/main.cpp` (HUD) and `src/PredictiveBuffer.cpp` (buffer engine); CMake compiles every `src/*.cpp`.
 
 **Locally:**
 
@@ -84,16 +82,16 @@ geode build
 
 ```
 src/main.cpp                      HUD source code (with English / Spanish texts)
+src/PredictiveBuffer.cpp          buffer engine (hooks and trajectory simulation)
+src/PredictiveBuffer.hpp          state shared between engine and HUD
 mod.json                          Geode metadata
 CMakeLists.txt                    build configuration
-base_mod/                         base mod without the console window (REQUIRED, goes in geode/mods)
-patch_console.py                  script that removes the console from the base mod
 .github/workflows/build.yml       automatic build on GitHub
 ```
 
 ### Troubleshooting
 
-- **The menu says "NO DATA":** the base mod is not the expected build. Make sure `base_mod/PredictiveBuffer_noconsole.geode` is in `geode/mods` and enabled; the HUD refuses to write to memory of an unknown version on purpose.
+- **The buffer does nothing / the game shows a conflict:** make sure the old `ai.predictivebuffer` mod is NOT installed next to this one; remove it and restart the game.
 - **I don't see the menu:** press `Left Ctrl` once; it may be hidden. Also check that both mods are enabled in Geode.
 - **The menu is in the wrong language:** *Interface* window → *Language*. The choice is saved.
 - **A window ended up off-screen or in a bad place:** set the scale to a smaller value, or drag it back by its title bar. Windows are kept inside the screen when you release them.
@@ -102,12 +100,12 @@ patch_console.py                  script that removes the console from the base 
 
 ### Notes
 
-- Windows only: the mod reads and writes the base mod's memory.
+- Windows only.
 - Use at your own risk. Check the rules of any leaderboard or list before using a buffer mod on a record run.
 
 ### Credits
 
-- Base mod **Predictive Input Buffer** (`ai.predictivebuffer`), included in `base_mod/`.
+- Predictive Input Buffer engine (formerly the separate `ai.predictivebuffer` mod) by **AlexMera**.
 - Built with the [Geode SDK](https://geode-sdk.org/).
 - Visual style inspired by the Mega Hack v9 menu.
 
@@ -119,10 +117,10 @@ patch_console.py                  script that removes the console from the base 
 
 Menú dentro del juego, al estilo Mega Hack, para el mod de Geode **Predictive Input Buffer** (Geometry Dash, Windows). Permite elegir cuántos ticks de buffer tiene cada vehículo, activar y desactivar el buffer con un click, ver en directo los clicks bufferizados y cambiar los colores del menú con una rueda de colores. El menú está disponible en **inglés (por defecto)** y **español**.
 
-- **ID del mod:** `lilwc.predictivebufferhud`
+- **ID del mod:** `alexmera.predictivebufferhud`
 - **Geometry Dash:** 2.2081 (Windows)
 - **Geode:** 5.11.2
-- **Requiere:** el mod base `ai.predictivebuffer`. En este repositorio hay una versión lista para usar: [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode). **El HUD no funciona sin él** (mira [Instalación](#instalación)).
+- **Requiere:** nada más. El motor del Predictive Input Buffer ya va dentro de este mod. **Desinstala `ai.predictivebuffer` si lo tienes** (los dos chocan).
 
 ### Características
 
@@ -130,7 +128,7 @@ Menú dentro del juego, al estilo Mega Hack, para el mod de Geode **Predictive I
 - **Ticks por vehículo:** Cubo, Nave, UFO, Bola, Wave, Robot, Araña y Swing tienen cada uno su propio valor. Usa las dos flechas a la izquierda del número: ▲ sube y ▼ baja.
   - Escalones: `0 → 2 → 4 → 8 → 16 → 24 → 32 → 48 → 54 → 60` (0 = sin buffer en ese vehículo).
   - La fila del vehículo que estás jugando se resalta.
-- **Activar con un click:** la fila *Buffer activo* enciende y apaga el buffer con un solo click. Cuando está encendido, la fila se ilumina con el color principal. `F6` (del mod base) también funciona.
+- **Activar con un click:** la fila *Buffer activo* enciende y apaga el buffer con un solo click. Cuando está encendido, la fila se ilumina con el color principal. `F6` también funciona y puedes elegir tu propia tecla (por defecto `F7`).
 - **Información de clicks bufferizados:** último click (PRESS / RELEASE), ticks ahorrados, frames y milisegundos, total / media / máximo y un pequeño historial.
 - **Colores personalizados:** el color principal (azul por defecto) y el color gris (gris por defecto) se cambian con una rueda de colores propia y un deslizador de brillo. Un botón restablece los valores por defecto.
 - **Selector de idioma:** cambia todo el menú entre **inglés** (por defecto) y **español** desde la ventana *Interfaz*.
@@ -139,16 +137,14 @@ Menú dentro del juego, al estilo Mega Hack, para el mod de Geode **Predictive I
 
 ### Cómo funciona
 
-El mod base guarda dos límites en memoria: uno que se usa cuando eres wave y otro para el resto de vehículos. Este HUD detecta tu vehículo actual en cada frame y escribe el valor correcto en esos dos límites. El mod base no se modifica, por eso solo tienes que recompilar el HUD cuando cambies algo aquí.
+El mod contiene el motor del Predictive Input Buffer (de AlexMera) y el HUD en el mismo `.geode`. Se usan dos límites: uno cuando eres wave y otro para el resto de vehículos. El HUD detecta tu vehículo actual en cada frame y fija el valor correcto para el motor.
 
 > 4 ticks = 1 frame a 60 FPS (el juego va a 240 ticks por segundo).
 
 ### Instalación
 
 1. Instala [Geode](https://geode-sdk.org/) para Geometry Dash 2.2081.
-2. Copia **los dos** archivos en tu carpeta `geode/mods`:
-   - [`base_mod/PredictiveBuffer_noconsole.geode`](base_mod/PredictiveBuffer_noconsole.geode) (mod base, sin ventana de consola). **Obligatorio:** el HUD solo dibuja el menú y controla el mod base, así que sin este archivo muestra "SIN DATOS" y no hace nada.
-   - `lilwc.predictivebufferhud.geode` (este menú, del artefacto de GitHub Actions o de tu propia compilación)
+2. Copia `alexmera.predictivebufferhud.geode` (motor + menú, del release o del artefacto de GitHub Actions) en tu carpeta `geode/mods`. Es el único archivo que necesitas. Si tienes el mod antiguo `ai.predictivebuffer`, bórralo.
 3. Abre el juego. El menú aparece arriba a la izquierda, en todas las pantallas y dentro de los niveles. El idioma por defecto es inglés; cámbialo en *Interfaz → Idioma*.
 
 ### Uso
@@ -178,9 +174,9 @@ Ventanas:
 
 1. Sube este repositorio a GitHub (rama `main`).
 2. Abre la pestaña **Actions** y ejecuta **Build Predictive Buffer HUD** (también se ejecuta solo en cada push).
-3. Cuando termine, descarga el artefacto `lilwc.predictivebufferhud`. Dentro está el archivo `.geode`.
+3. Cuando termine, descarga el artefacto `alexmera.predictivebufferhud`. Dentro está el archivo `.geode`.
 
-> Tener `base_mod/PredictiveBuffer_noconsole.geode` en el repositorio **no** afecta a la compilación: CMake solo compila `src/*.cpp` y el workflow solo sube el `.geode` del HUD que genera. El mod base nunca se recompila; solo lo descargas del repositorio y lo pones junto al HUD en `geode/mods`.
+> El mod se compila a partir de `src/main.cpp` (HUD) y `src/PredictiveBuffer.cpp` (motor del buffer); CMake compila todos los `src/*.cpp`.
 
 **En local:**
 
@@ -195,16 +191,16 @@ geode build
 
 ```
 src/main.cpp                      código fuente del HUD (con textos en inglés / español)
+src/PredictiveBuffer.cpp          motor del buffer (hooks y simulación de trayectoria)
+src/PredictiveBuffer.hpp          estado compartido entre motor y HUD
 mod.json                          datos del mod para Geode
 CMakeLists.txt                    configuración de compilación
-base_mod/                         mod base sin ventana de consola (OBLIGATORIO, va en geode/mods)
-patch_console.py                  script que quita la consola del mod base
 .github/workflows/build.yml       compilación automática en GitHub
 ```
 
 ### Solución de problemas
 
-- **El menú dice "SIN DATOS":** el mod base no es la versión esperada. Comprueba que `base_mod/PredictiveBuffer_noconsole.geode` esté en `geode/mods` y activado; el HUD se niega a escribir en la memoria de una versión desconocida a propósito.
+- **El buffer no hace nada / el juego avisa de un conflicto:** comprueba que el mod antiguo `ai.predictivebuffer` NO esté instalado junto a este; bórralo y reinicia el juego.
 - **No veo el menú:** pulsa `Ctrl izquierdo` una vez, puede estar oculto. Comprueba también que los dos mods estén activados en Geode.
 - **El menú está en otro idioma:** ventana *Interfaz* → *Idioma*. La elección se guarda.
 - **Una ventana quedó fuera de la pantalla o en mal sitio:** baja la escala o arrástrala de vuelta por su barra de título. Las ventanas se mantienen dentro de la pantalla al soltarlas.
@@ -213,11 +209,11 @@ patch_console.py                  script que quita la consola del mod base
 
 ### Notas
 
-- Solo Windows: el mod lee y escribe la memoria del mod base.
+- Solo Windows.
 - Úsalo bajo tu responsabilidad. Revisa las reglas de cualquier lista o ranking antes de usar un mod de buffer en un récord.
 
 ### Créditos
 
-- Mod base **Predictive Input Buffer** (`ai.predictivebuffer`), incluido en `base_mod/`.
+- Motor del Predictive Input Buffer (antes el mod separado `ai.predictivebuffer`) de **AlexMera**.
 - Hecho con el [Geode SDK](https://geode-sdk.org/).
 - Estilo visual inspirado en el menú de Mega Hack v9.
