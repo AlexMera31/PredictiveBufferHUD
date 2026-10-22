@@ -9,7 +9,12 @@
 #include <Geode/modify/GameObject.hpp>
 #include <Geode/modify/EffectGameObject.hpp>
 #include <Geode/modify/HardStreak.hpp>
+#include <Geode/modify/RingObject.hpp>
 #include <algorithm>
+#include <cmath>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 #include "PredictiveBuffer.hpp"
 
 using namespace geode::prelude;
@@ -25,6 +30,291 @@ constexpr int SPAM_INTERVAL_TICKS = 8;
 constexpr int SPAM_STREAK_REQUIRED = 3;
 
 // ============================================================================
+
+
+// ============================================================================
+//  ORBS / PADS + MOVE TRIGGERS SUPPORT
+// ============================================================================
+
+static bool isOrbOrPad(GameObject* o) {
+    if (!o) return false;
+    switch (o->m_objectType) {
+        case GameObjectType::YellowJumpPad:
+        case GameObjectType::PinkJumpPad:
+        case GameObjectType::RedJumpPad:
+        case GameObjectType::GravityPad:
+        case GameObjectType::YellowJumpRing:
+        case GameObjectType::PinkJumpRing:
+        case GameObjectType::RedJumpRing:
+        case GameObjectType::GravityRing:
+        case GameObjectType::GreenRing:
+        case GameObjectType::DropRing:
+        case GameObjectType::CustomRing:
+        case GameObjectType::DashRing:
+        case GameObjectType::GravityDashRing:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool isSimCollidable(GameObject* o) {
+    if (!o) return false;
+    if (isOrbOrPad(o)) return true;
+    switch (o->m_objectType) {
+        case GameObjectType::Solid:
+        case GameObjectType::Hazard:
+        case GameObjectType::AnimatedHazard:
+        case GameObjectType::CollisionObject:
+        case GameObjectType::Slope:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Easing de GD (mismas formulas que cocos2d CCActionEase). type = valor de EasingType (0..18)
+static float gdEase(int type, float t, float rate) {
+    t = std::clamp(t, 0.f, 1.f);
+    if (rate <= 0.f) rate = 2.f;
+    const float PI = 3.14159265f;
+    auto bounceOut = [](float x) {
+        if (x < 1.f / 2.75f) return 7.5625f * x * x;
+        if (x < 2.f / 2.75f) { x -= 1.5f / 2.75f; return 7.5625f * x * x + 0.75f; }
+        if (x < 2.5f / 2.75f) { x -= 2.25f / 2.75f; return 7.5625f * x * x + 0.9375f; }
+        x -= 2.625f / 2.75f; return 7.5625f * x * x + 0.984375f;
+    };
+    auto elasticOut = [&](float x, float per) {
+        if (x == 0.f || x == 1.f) return x;
+        float s = per / 4.f;
+        return std::pow(2.f, -10.f * x) * std::sin((x - s) * (PI * 2.f) / per) + 1.f;
+    };
+    auto elasticIn = [&](float x, float per) {
+        if (x == 0.f || x == 1.f) return x;
+        float s = per / 4.f;
+        x -= 1.f;
+        return -std::pow(2.f, 10.f * x) * std::sin((x - s) * (PI * 2.f) / per);
+    };
+    const float c = 1.70158f;
+    switch (type) {
+        case 1: { float x = t * 2; return x < 1 ? 0.5f * std::pow(x, rate) : 1.f - 0.5f * std::pow(2 - x, rate); }
+        case 2: return std::pow(t, rate);
+        case 3: return std::pow(t, 1.f / rate);
+        case 4: { float p = rate * 1.5f; if (t < 0.5f) return 0.5f * elasticIn(t * 2, p); return 0.5f * elasticOut(t * 2 - 1, p) + 0.5f; }
+        case 5: return elasticIn(t, rate);
+        case 6: return elasticOut(t, rate);
+        case 7: return t < 0.5f ? 0.5f * (1.f - bounceOut(1.f - t * 2)) : 0.5f * bounceOut(t * 2 - 1) + 0.5f;
+        case 8: return 1.f - bounceOut(1.f - t);
+        case 9: return bounceOut(t);
+        case 10: { if (t == 0 || t == 1) return t; float x = t * 2; return x < 1 ? 0.5f * std::pow(2.f, 10 * (x - 1)) : 0.5f * (-std::pow(2.f, -10 * (x - 1)) + 2); }
+        case 11: return t == 0 ? 0.f : std::pow(2.f, 10 * (t - 1));
+        case 12: return t == 1 ? 1.f : 1.f - std::pow(2.f, -10 * t);
+        case 13: return -0.5f * (std::cos(PI * t) - 1);
+        case 14: return -std::cos(t * PI / 2) + 1;
+        case 15: return std::sin(t * PI / 2);
+        case 16: { float x = t * 2, cc = c * 1.525f; return x < 1 ? 0.5f * (x * x * ((cc + 1) * x - cc)) : 0.5f * ((x - 2) * (x - 2) * ((cc + 1) * (x - 2) + cc) + 2); }
+        case 17: return t * t * ((c + 1) * t - c);
+        case 18: { float x = t - 1; return x * x * ((c + 1) * x + c) + 1; }
+        default: return t; // 0 = None (lineal)
+    }
+}
+
+// Lee los Move Triggers (ID 901) del nivel, recuerda los que ya se han disparado de verdad
+// y, durante la simulacion, mueve los objetos afectados tick a tick (y restaura todo al terminar).
+class MoveTracker {
+public:
+    struct Info {
+        EffectGameObject* trig = nullptr;
+        int group = 0;
+        CCPoint off{0, 0};
+        float dur = 0.f;
+        int easing = 0;
+        float rate = 2.f;
+        float x = 0.f;
+    };
+
+private:
+    struct Active { const Info* info; double start; bool real; };
+    struct Base { GameObject* obj; CCPoint pos; CCPoint last; std::vector<const Info*> affect; };
+
+    bool m_scanned = false;
+    std::vector<Info> m_infos;
+    std::unordered_map<EffectGameObject*, size_t> m_index;
+    std::unordered_map<int, std::vector<GameObject*>> m_groupCache;
+
+    double m_clock = 0.0;                   // tiempo de nivel acumulado (s) segun los ticks reales de P1
+    std::vector<Active> m_realActive;       // moves disparados de verdad y aun en curso
+
+    // estado de una simulacion
+    std::vector<Active> m_simActive;
+    std::vector<const Info*> m_pending;
+    std::vector<Base> m_bases;
+    double m_simStartClock = 0.0;
+    double m_stepSec = 1.0 / 240.0;
+    bool m_inSim = false;
+
+    // flags de activacion de orbes/pads modificados por la simulacion (hay que dejarlos como estaban)
+    struct Act { GameObject* o; bool a; bool a2; };
+    std::vector<Act> m_acts;
+    std::unordered_set<GameObject*> m_actSet;
+
+    std::vector<GameObject*> const& groupObjects(PlayLayer* pl, int g) {
+        auto it = m_groupCache.find(g);
+        if (it != m_groupCache.end()) return it->second;
+        std::vector<GameObject*> v;
+        if (auto* arr = pl->getGroup(g)) {
+            for (auto* o : CCArrayExt<GameObject*>(arr)) if (o) v.push_back(o);
+        }
+        return m_groupCache.emplace(g, std::move(v)).first->second;
+    }
+
+    void scan(PlayLayer* pl) {
+        m_scanned = true;
+        m_infos.clear(); m_index.clear(); m_groupCache.clear();
+        if (!pl || !pl->m_objects) return;
+        for (auto* o : CCArrayExt<GameObject*>(pl->m_objects)) {
+            if (!o || o->m_objectID != 901) continue;
+            auto* t = static_cast<EffectGameObject*>(o);
+            Info i;
+            i.trig = t;
+            i.group = t->m_targetGroupID;
+            i.off = t->m_moveOffset;
+            i.dur = t->m_duration;
+            i.easing = static_cast<int>(t->m_easingType);
+            i.rate = t->m_easingRate;
+            i.x = t->getPositionX();
+            // Limitaciones: "move target" y "lock to player" dependen de posiciones dinamicas -> se ignoran
+            if (t->m_useMoveTarget || t->m_lockToPlayerX || t->m_lockToPlayerY) i.group = 0;
+            m_index[t] = m_infos.size();
+            m_infos.push_back(i);
+        }
+    }
+
+    static CCPoint deltaOf(const Active& a, double now, double baseTime) {
+        float d = a.info->dur;
+        auto prog = [&](double t) -> float {
+            if (d <= 0.0001f) return t >= a.start ? 1.f : 0.f;
+            return std::clamp(static_cast<float>((t - a.start) / d), 0.f, 1.f);
+        };
+        float e1 = gdEase(a.info->easing, prog(now), a.info->rate);
+        float e0 = a.real ? gdEase(a.info->easing, prog(baseTime), a.info->rate) : 0.f;
+        return a.info->off * (e1 - e0);
+    }
+
+    void setObjPos(GameObject* o, CCPoint p) {
+        o->setPosition(p);
+        o->m_isObjectRectDirty = true;
+        o->m_isOrientedRectDirty = true;
+    }
+
+public:
+    void reset() {
+        m_clock = 0.0;
+        m_realActive.clear();
+        m_scanned = false;      // se vuelve a leer en la siguiente simulacion
+    }
+    void tickReal(float dt) { m_clock += dt / 60.0; }
+
+    void onRealFired(EffectGameObject* t) {
+        if (!t || t->m_objectID != 901) return;
+        if (!m_scanned) scan(PlayLayer::get());
+        auto it = m_index.find(t);
+        if (it == m_index.end() || m_infos[it->second].group == 0) return;
+        m_realActive.push_back({&m_infos[it->second], m_clock, true});
+    }
+
+    bool any() const { return !m_bases.empty(); }
+    std::vector<Base> const& bases() const { return m_bases; }
+
+    void rememberActivation(GameObject* o) {
+        if (!m_inSim || !o || !m_actSet.insert(o).second) return;
+        m_acts.push_back({o, o->m_hasBeenActivated, o->m_hasBeenActivatedP2});
+    }
+
+    void begin(PlayLayer* pl, float simX, float lookAheadX, float stepSec) {
+        m_inSim = true;
+        if (!m_scanned) scan(pl);
+        m_stepSec = stepSec;
+        m_simStartClock = m_clock;
+        m_simActive.clear(); m_pending.clear(); m_bases.clear();
+
+        // limpiar moves reales ya terminados
+        m_realActive.erase(std::remove_if(m_realActive.begin(), m_realActive.end(), [&](Active const& a) {
+            return m_clock >= a.start + a.info->dur;
+        }), m_realActive.end());
+        for (auto const& a : m_realActive) m_simActive.push_back(a);
+
+        for (auto const& i : m_infos) {
+            if (i.group == 0 || !i.trig) continue;
+            if (i.trig->m_isSpawnTriggered || i.trig->m_isTouchTriggered) continue;   // las cadenas de spawn no se predicen (v1)
+            if (i.x > simX && i.x < lookAheadX && m_realActive.end() ==
+                std::find_if(m_realActive.begin(), m_realActive.end(), [&](Active const& a) { return a.info == &i; })) {
+                m_pending.push_back(&i);
+            }
+        }
+
+        std::unordered_map<GameObject*, size_t> baseOf;
+        auto addInfo = [&](const Info* inf) {
+            for (auto* o : groupObjects(pl, inf->group)) {
+                if (!isSimCollidable(o)) continue;
+                auto it = baseOf.find(o);
+                if (it == baseOf.end()) {
+                    it = baseOf.emplace(o, m_bases.size()).first;
+                    m_bases.push_back({o, o->getPosition(), o->getPosition(), {}});
+                }
+                auto& v = m_bases[it->second].affect;
+                if (std::find(v.begin(), v.end(), inf) == v.end()) v.push_back(inf);
+            }
+        };
+        for (auto const& a : m_simActive) addInfo(a.info);
+        for (auto* i : m_pending) addInfo(i);
+    }
+
+    // Avanza el mundo hasta el tick k de la simulacion (k = 1 -> un tick despues del estado real)
+    void stepTo(int k, float simPlayerX) {
+        if (m_bases.empty()) return;
+        double now = m_simStartClock + k * m_stepSec;
+
+        for (size_t n = 0; n < m_pending.size();) {
+            if (m_pending[n]->x <= simPlayerX) {
+                m_simActive.push_back({m_pending[n], now, false});
+                m_pending.erase(m_pending.begin() + n);
+            } else n++;
+        }
+        if (m_simActive.empty()) return;
+
+        for (auto& b : m_bases) {
+            CCPoint d{0, 0};
+            for (auto const& a : m_simActive) {
+                if (std::find(b.affect.begin(), b.affect.end(), a.info) == b.affect.end()) continue;
+                d = d + deltaOf(a, now, m_simStartClock);
+            }
+            CCPoint np = b.pos + d;
+            if (np.x != b.last.x || np.y != b.last.y) {
+                setObjPos(b.obj, np);
+                b.last = np;
+            }
+        }
+    }
+
+    void end() {
+        for (auto& b : m_bases) {
+            setObjPos(b.obj, b.pos);
+        }
+        m_bases.clear();
+        m_simActive.clear();
+        m_pending.clear();
+        for (auto& a : m_acts) {
+            a.o->m_hasBeenActivated = a.a;
+            a.o->m_hasBeenActivatedP2 = a.a2;
+        }
+        m_acts.clear();
+        m_actSet.clear();
+        m_inSim = false;
+    }
+};
+
+static MoveTracker s_moves;
 
 class TrajectoryBufferSim {
 private:
@@ -45,7 +335,8 @@ private:
     int  m_waitTicks = -1;          // -1 = inactive, >= 0 = countdown ticks, -2 = queued opposite tick
     bool m_bufferedPush = true;     // true = buffered PRESS, false = buffered RELEASE
     bool m_queuedOpposite = false;  // true if user quickly released/re-pressed during wait
-    float m_frameDt = 0.25f;        // GD 240 TPS normalized dt is 0.25f
+    float m_frameDt = 0.25f;
+    float m_rawDt = 0.25f;          // dt real (sin dividir por timewarp)        // GD 240 TPS normalized dt is 0.25f
 
     // Streak-based Spam Guard state
     int  m_ticksSinceLastInput = 999;
@@ -126,6 +417,8 @@ public:
     }
 
     bool isSimulating() const { return m_simulating; }
+    float rawDt() const { return m_rawDt; }
+    float validDt() const { return getValidDt(); }
     bool isFiringBuffered() const { return m_firingBuffered; }
 
     bool checkSimulationDeath(PlayerObject* player) {
@@ -143,6 +436,7 @@ public:
 
     void setFrameDelta(float dt) {
         PlayLayer* pl = PlayLayer::get();
+        m_rawDt = dt;
         if (pl && pl->m_gameState.m_timeWarp > 0.f) {
             m_frameDt = dt / pl->m_gameState.m_timeWarp;
         } else {
@@ -159,6 +453,13 @@ public:
         syncSimPlayer(m_simPlayer1, realP1);
         if (isDual && m_simPlayer2 && realP2) {
             syncSimPlayer(m_simPlayer2, realP2);
+        }
+
+        // Mundo dinamico: move triggers (activos + futuros) y orbes/pads
+        {
+            float vx = std::max(1.f, std::abs(realP1->m_playerSpeed)) * 6.f;   // px por tick (cota alta)
+            s_moves.begin(pl, realP1->getPositionX(), realP1->getPositionX() + vx * (maxTicks + delayFrames) + 60.f,
+                          getValidDt() / 60.f);
         }
 
         // Before delayFrames, maintain the pre-input button state
@@ -204,6 +505,7 @@ public:
                 m_simPlayer2->update(dt);
                 m_simPlayer2->updateRotation(dt);
             }
+            s_moves.stepTo(i + 1, m_simPlayer1->getPositionX());
             if (m_simulationDead) break;
 
             resetCollisionLog(m_simPlayer1);
@@ -218,7 +520,7 @@ public:
 
             if (i >= delayFrames) {
                 survived++;
-                if (!isContinuousMode) {
+                if (!isContinuousMode && !s_moves.any()) {   // con objetos en movimiento no se da por "seguro" al aterrizar
                     bool p1Grounded = m_simPlayer1->m_isOnGround;
                     bool p2Grounded = (!isDual || !m_simPlayer2) ? true : m_simPlayer2->m_isOnGround;
                     if (!p1Grounded || !p2Grounded) {
@@ -235,6 +537,7 @@ public:
             }
         }
 
+        s_moves.end();
         m_simulating = false;
         return survived;
     }
@@ -475,12 +778,22 @@ class $modify(BufPlayLayer, PlayLayer) {
     }
 
     void flipGravity(PlayerObject* p0, bool p1, bool p2) {
-        if (s_sim.isSimulating()) return;
+        if (s_sim.isSimulating()) {
+            // La simulacion SI necesita voltear la gravedad (orbes/pads de gravedad), pero sin efectos visuales
+            if (p0) p0->flipGravity(p1, p2);
+            return;
+        }
         PlayLayer::flipGravity(p0, p1, p2);
+    }
+
+    void resetLevel() {
+        PlayLayer::resetLevel();
+        s_moves.reset();
     }
 
     void onQuit() {
         PlayLayer::onQuit();
+        s_moves.reset();
         s_sim.quit();
     }
 };
@@ -512,6 +825,7 @@ class $modify(BufEffectGameObject, EffectGameObject) {
     void triggerObject(GJBaseGameLayer* p0, int p1, const gd::vector<int>* p2) {
         if (s_sim.isSimulating()) return;
         EffectGameObject::triggerObject(p0, p1, p2);
+        s_moves.onRealFired(this);   // si es un Move Trigger real, lo recordamos para predecir lo que le queda por mover
     }
 };
 
@@ -548,13 +862,14 @@ class $modify(BufPlayerObject, PlayerObject) {
             s_sim.onPlayerUpdate(this);
         }
         PlayerObject::update(dt);
-        if (PlayLayer::get() && !s_sim.isSimulating()) {
+        if (PlayLayer* pl = PlayLayer::get(); pl && !s_sim.isSimulating()) {
             s_sim.setFrameDelta(dt);
+            if (this == pl->m_player1) s_moves.tickReal(s_sim.validDt());
         }
     }
 
     void ringJump(RingObject* p0, bool p1) {
-        if (s_sim.isSimulating()) return;
+        // Orbes: se ejecutan tambien en la simulacion (si no, la prediccion atraviesa los orbes)
         PlayerObject::ringJump(p0, p1);
     }
 };
@@ -568,7 +883,11 @@ class $modify(BufBaseGameLayer, GJBaseGameLayer) {
     }
 
     bool canBeActivatedByPlayer(PlayerObject* p0, EffectGameObject* p1) {
-        if (s_sim.isSimulating()) return false;
+        if (s_sim.isSimulating()) {
+            // solo orbes/pads pueden activarse dentro de la simulacion; triggers y demas, no
+            if (!isOrbOrPad(p1)) return false;
+            s_moves.rememberActivation(p1);
+        }
         return GJBaseGameLayer::canBeActivatedByPlayer(p0, p1);
     }
 
@@ -584,16 +903,21 @@ class $modify(BufBaseGameLayer, GJBaseGameLayer) {
     void collisionCheckObjects(PlayerObject* player, gd::vector<GameObject*>* vec, int objectsCount, float dt) {
         if (s_sim.isSimulating()) {
             gd::vector<GameObject*> extra;
-            extra.reserve(objectsCount);
+            extra.reserve(objectsCount + 16);
+            std::unordered_set<GameObject*> have;
             for (int i = 0; i < objectsCount; i++) {
                 GameObject* obj = vec->at(i);
-                if (!obj) continue;
-                if (obj->m_objectType == GameObjectType::Solid ||
-                    obj->m_objectType == GameObjectType::Hazard ||
-                    obj->m_objectType == GameObjectType::AnimatedHazard ||
-                    obj->m_objectType == GameObjectType::CollisionObject ||
-                    obj->m_objectType == GameObjectType::Slope) {
-                    extra.push_back(obj);
+                if (!obj || !isSimCollidable(obj)) continue;
+                if (isOrbOrPad(obj)) s_moves.rememberActivation(obj);
+                extra.push_back(obj);
+                have.insert(obj);
+            }
+            // objetos movidos por triggers: su "seccion" puede estar desfasada -> se anaden a mano si estan cerca
+            if (s_moves.any()) {
+                float px = player->getPositionX();
+                for (auto const& b : s_moves.bases()) {
+                    if (std::abs(b.obj->getPositionX() - px) > 240.f) continue;
+                    if (have.insert(b.obj).second) extra.push_back(b.obj);
                 }
             }
             GJBaseGameLayer::collisionCheckObjects(player, &extra, extra.size(), dt);
@@ -603,7 +927,7 @@ class $modify(BufBaseGameLayer, GJBaseGameLayer) {
     }
 
     void playerTouchedRing(PlayerObject* player, RingObject* ring) {
-        if (s_sim.isSimulating()) return;
+        if (s_sim.isSimulating()) s_moves.rememberActivation(ring);
         GJBaseGameLayer::playerTouchedRing(player, ring);
     }
 };

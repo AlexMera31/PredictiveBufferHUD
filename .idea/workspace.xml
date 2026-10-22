@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9eba399b-24fb-493d-a3a7-07dc06e6e192" name="Changes" comment="Now merged the two mods in one" />
+    <list default="true" id="9eba399b-24fb-493d-a3a7-07dc06e6e192" name="Changes" comment="Trying to fix geode mod">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,41 +15,41 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "AlexMera31"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;AlexMera31&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/AlexMera31/PredictiveBufferHUDv1.3.git",
-    "accountId": "9f54a324-4588-49db-8ede-5ee6e7c8d969"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/AlexMera31/PredictiveBufferHUDv1.3.git&quot;,
+    &quot;accountId&quot;: &quot;9f54a324-4588-49db-8ede-5ee6e7c8d969&quot;
   }
-}]]></component>
+}</component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0144929923280697" />
-      <entry key="MS500" value="1.5704770351699229" />
-      <entry key="S2" value="3.832260567338534" />
-      <entry key="S5" value="6.840376622537607" />
-      <entry key="S10" value="9.108036523688437" />
-      <entry key="S30" value="11.44644148393549" />
-      <entry key="S60" value="12.184606416736669" />
-      <entry key="M2" value="12.582062560525857" />
-      <entry key="M5" value="12.830287563778455" />
-      <entry key="M10" value="12.914714029468353" />
-      <entry key="M15" value="12.943046671602874" />
-      <entry key="M30" value="12.971475199189774" />
-      <entry key="H1" value="12.985725541138997" />
-      <entry key="H2" value="12.992859752911746" />
-      <entry key="H4" value="12.996429121660594" />
-      <entry key="D1" value="12.99940474874508" />
-      <entry key="W1" value="12.999914961537897" />
+      <entry key="MS100" value="1.0015548726387877" />
+      <entry key="MS500" value="1.39337116057203" />
+      <entry key="S2" value="5.580748614143759" />
+      <entry key="S5" value="14.35738931027885" />
+      <entry key="S10" value="23.744580824765688" />
+      <entry key="S30" value="36.542382314383055" />
+      <entry key="S60" value="41.3082883195142" />
+      <entry key="M2" value="44.025889561711914" />
+      <entry key="M5" value="45.7779527318072" />
+      <entry key="M10" value="46.43861579039516" />
+      <entry key="M15" value="46.985158088350694" />
+      <entry key="M30" value="49.67207886764696" />
+      <entry key="H1" value="54.66490530083593" />
+      <entry key="H2" value="59.717901615967556" />
+      <entry key="H4" value="63.348899038437835" />
+      <entry key="D1" value="67.14260782085194" />
+      <entry key="W1" value="67.87533487315933" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,29 +71,29 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9202240726259234" />
-      <entry key="MS500" value="1.5370837158690132" />
-      <entry key="S2" value="3.8096832982586437" />
-      <entry key="S5" value="6.821803631574432" />
-      <entry key="S10" value="9.094532652835332" />
-      <entry key="S30" value="11.440350943584457" />
-      <entry key="S60" value="12.181298277168446" />
-      <entry key="M2" value="12.580336664081113" />
-      <entry key="M5" value="12.829579118488251" />
-      <entry key="M10" value="12.914356718718413" />
-      <entry key="M15" value="12.942807772625743" />
-      <entry key="M30" value="12.971355402394034" />
-      <entry key="H1" value="12.985665555650463" />
-      <entry key="H2" value="12.992829738361745" />
-      <entry key="H4" value="12.996414108930017" />
-      <entry key="D1" value="12.999402245865245" />
-      <entry key="W1" value="12.999914603965063" />
+      <entry key="MS100" value="0.8779781988078365" />
+      <entry key="MS500" value="1.3574718713062786" />
+      <entry key="S2" value="5.540887877862369" />
+      <entry key="S5" value="14.293082883656114" />
+      <entry key="S10" value="23.667651278594597" />
+      <entry key="S30" value="36.4874746690308" />
+      <entry key="S60" value="41.274298971593076" />
+      <entry key="M2" value="44.006916596601194" />
+      <entry key="M5" value="45.76983670751706" />
+      <entry key="M10" value="46.43446410830011" />
+      <entry key="M15" value="46.98236447261446" />
+      <entry key="M30" value="49.67065324592795" />
+      <entry key="H1" value="54.66417154650156" />
+      <entry key="H2" value="59.717524638950515" />
+      <entry key="H4" value="63.34870696794373" />
+      <entry key="D1" value="67.1425751886916" />
+      <entry key="W1" value="67.87533019434125" />
     </decayedShown>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 5,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3L2dvWmVlQG2yN66A8qOxKxYtio" />
   <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="1" id="Add" />
@@ -119,6 +121,7 @@
     "node.js.selected.package.jshint": "",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "advanced.settings",
     "to.speed.mode.migration.done": "true"
   }
 }]]></component>
@@ -150,6 +153,11 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Now merged the two mods in one" />
-    <option name="LAST_COMMIT_MESSAGE" value="Now merged the two mods in one" />
+    <MESSAGE value="Trying to fix geode mod" />
+    <option name="LAST_COMMIT_MESSAGE" value="Trying to fix geode mod" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>
