@@ -8,11 +8,10 @@
 	"name": "Predictive Buffer HUD",
 	"developer": "AlexMera",
 	"description": "Predictive Input Buffer + menu estilo Mega Hack dentro del juego (L-Ctrl para ocultar/mostrar) con ticks de buffer por vehiculo, colores personalizables e info de clicks. Todo en un solo mod.",
-	"incompatibilities": [
-		{
-			"id": "ai.predictivebuffer",
+	"incompatibilities": {
+		"ai.predictivebuffer": {
 			"version": "*",
 			"importance": "conflicting"
 		}
-	]
+	}
 }

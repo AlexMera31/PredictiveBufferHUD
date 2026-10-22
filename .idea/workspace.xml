@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="9eba399b-24fb-493d-a3a7-07dc06e6e192" name="Changes" comment="Now merged the two mods in one" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "AlexMera31"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/AlexMera31/PredictiveBufferHUDv1.3.git",
+    "accountId": "9f54a324-4588-49db-8ede-5ee6e7c8d969"
+  }
+}]]></component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0144929923280697" />
+      <entry key="MS500" value="1.5704770351699229" />
+      <entry key="S2" value="3.832260567338534" />
+      <entry key="S5" value="6.840376622537607" />
+      <entry key="S10" value="9.108036523688437" />
+      <entry key="S30" value="11.44644148393549" />
+      <entry key="S60" value="12.184606416736669" />
+      <entry key="M2" value="12.582062560525857" />
+      <entry key="M5" value="12.830287563778455" />
+      <entry key="M10" value="12.914714029468353" />
+      <entry key="M15" value="12.943046671602874" />
+      <entry key="M30" value="12.971475199189774" />
+      <entry key="H1" value="12.985725541138997" />
+      <entry key="H2" value="12.992859752911746" />
+      <entry key="H4" value="12.996429121660594" />
+      <entry key="D1" value="12.99940474874508" />
+      <entry key="W1" value="12.999914961537897" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9202240726259234" />
+      <entry key="MS500" value="1.5370837158690132" />
+      <entry key="S2" value="3.8096832982586437" />
+      <entry key="S5" value="6.821803631574432" />
+      <entry key="S10" value="9.094532652835332" />
+      <entry key="S30" value="11.440350943584457" />
+      <entry key="S60" value="12.181298277168446" />
+      <entry key="M2" value="12.580336664081113" />
+      <entry key="M5" value="12.829579118488251" />
+      <entry key="M10" value="12.914356718718413" />
+      <entry key="M15" value="12.942807772625743" />
+      <entry key="M30" value="12.971355402394034" />
+      <entry key="H1" value="12.985665555650463" />
+      <entry key="H2" value="12.992829738361745" />
+      <entry key="H4" value="12.996414108930017" />
+      <entry key="D1" value="12.999402245865245" />
+      <entry key="W1" value="12.999914603965063" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 5,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3L2dvWmVlQG2yN66A8qOxKxYtio" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "to.speed.mode.migration.done": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\alexm\IdeaProjects\PredictiveBufferHUDv1.3" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-a203e0a19954-intellij.indexing.shared.core-IU-262.10315.125" />
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.10315.125" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="9eba399b-24fb-493d-a3a7-07dc06e6e192" name="Changes" comment="" />
+      <created>1792656327618</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1792656327618</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Now merged the two mods in one" />
+    <option name="LAST_COMMIT_MESSAGE" value="Now merged the two mods in one" />
+  </component>
+</project>
