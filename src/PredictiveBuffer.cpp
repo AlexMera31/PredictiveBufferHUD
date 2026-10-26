@@ -28,6 +28,12 @@ using namespace geode::prelude;
 // SPAM_STREAK_REQUIRED consecutive inputs faster than SPAM_INTERVAL_TICKS apart.
 // This keeps isolated micro-clicks and spike/sawblade dodges 100% protected!
 constexpr int SPAM_INTERVAL_TICKS = 8;
+
+// Zona alrededor del jugador (en unidades del juego) donde un orbe sin usar desactiva el buffer:
+// ORB_BEHIND = justo detras, ORB_AHEAD = por delante, ORB_DY = diferencia maxima de altura.
+constexpr double ORB_BEHIND = 40.0;
+constexpr double ORB_AHEAD = 150.0;
+constexpr double ORB_DY = 130.0;
 constexpr int SPAM_STREAK_REQUIRED = 3;
 
 // ============================================================================
@@ -408,6 +414,15 @@ public:
 
         m_queuedOpposite = false;
 
+        // Orbes: si hay un orbe sin usar cerca (delante o justo detras) el click puede ser para el orbe y la
+        // simulacion no es fiable para decidir que vas a morir "si o si". Se deja pasar el click tal cual.
+        if (pbuf::g.orbs && !motion::st.scanned) motion::scan(pl);
+        if (pbuf::g.orbs && (motion::orbNear(p1, ORB_BEHIND, ORB_AHEAD, ORB_DY) ||
+                             (isDual && p2 && motion::orbNear(p2, ORB_BEHIND, ORB_AHEAD, ORB_DY)))) {
+            m_gameHolding = push;
+            return true;
+        }
+
         // Full Show-Trajectory lookahead for Wave (65 ticks / 50 ticks Mini Wave)
         // so it sees spikes and sawblades 1-3 blocks ahead along the diagonal path!
         int targetHorizon = isMiniWave ? 50 : (isWave ? 65 : 160);
@@ -416,7 +431,7 @@ public:
         if (maxDelayFrames > 16) targetHorizon += maxDelayFrames - 16;
 
         // Plan de movimiento de objetos (Move Triggers) compartido por todas las simulaciones de este click
-        if (pbuf::g.moving && !motion::st.scanned) motion::scan(pl);
+        if (!motion::st.scanned) motion::scan(pl);
         motion::Plan plan;
         plan.build(p1, targetHorizon + maxDelayFrames);
 

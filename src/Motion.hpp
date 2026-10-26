@@ -41,6 +41,26 @@ namespace motion {
         }
     }
 
+    // solo los orbes (necesitan click); los pads se activan solos
+    inline bool isOrb(GameObjectType t) {
+        switch (t) {
+            case GameObjectType::YellowJumpRing:
+            case GameObjectType::PinkJumpRing:
+            case GameObjectType::RedJumpRing:
+            case GameObjectType::GravityRing:
+            case GameObjectType::GreenRing:
+            case GameObjectType::DropRing:
+            case GameObjectType::DashRing:
+            case GameObjectType::GravityDashRing:
+            case GameObjectType::SpiderOrb:
+            case GameObjectType::CustomRing:
+            case GameObjectType::TeleportOrb:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     inline bool isCollidable(GameObjectType t) {
         return t == GameObjectType::Solid || t == GameObjectType::Hazard || t == GameObjectType::AnimatedHazard ||
                t == GameObjectType::CollisionObject || t == GameObjectType::Slope;
@@ -115,6 +135,7 @@ namespace motion {
     struct LevelState {
         std::vector<Trig> trigs;         // ordenados por x
         std::vector<Dyn> dyn;
+        std::vector<GameObject*> orbs;   // todos los orbes del nivel
         size_t next = 0;                 // siguiente trigger que activara el jugador
         int tick = 0;                    // ticks reales de P1 desde que se cargo el nivel
         float lastX = -1e9f;
@@ -141,6 +162,7 @@ namespace motion {
 
         std::unordered_set<int> targets;
         for (auto o : geode::cocos::CCArrayExt<GameObject, false>(pl->m_objects)) {
+            if (o && isOrb(o->m_objectType)) st.orbs.push_back(o);
             if (!o || o->m_objectID != 901) continue;            // 901 = Move Trigger
             auto e = typeinfo_cast<EffectGameObject*>(o);
             if (!e) continue;
@@ -178,6 +200,22 @@ namespace motion {
             st.dyn.push_back(std::move(d));
         }
         log::info("[PredictiveBuffer] move triggers: {}, moving objects: {}", st.trigs.size(), st.dyn.size());
+    }
+
+    // ¿hay un orbe sin usar cerca del jugador (delante o justo detras) que podria salvarte con un click?
+    // En ese caso el simulador no es fiable para decidir "vas a morir si o si", asi que el buffer no actua.
+    inline bool orbNear(PlayerObject* p, double behind, double ahead, double dy) {
+        if (!p) return false;
+        double px = p->getPositionX(), py = p->getPositionY();
+        for (auto o : st.orbs) {
+            double ox = o->m_positionX;
+            if (ox < px - behind || ox > px + ahead) continue;
+            if (std::abs(o->m_positionY - py) > dy) continue;
+            auto e = typeinfo_cast<EnhancedGameObject*>(o);
+            if (e && e->m_activatedByPlayer1 && !e->m_isMultiActivate) continue;   // ya gastado
+            return true;
+        }
+        return false;
     }
 
     // una vez por tick real de P1 (fuera de simulaciones)
