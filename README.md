@@ -21,6 +21,8 @@ An in-game, Mega Hack–style menu for the **Predictive Input Buffer** Geode mod
   - The row of the vehicle you are currently playing is highlighted.
 - **Click to toggle:** the *Buffer active* row turns the buffer on and off with a single click. The row lights up in the main color when it is on. `F6` also works, and you can set your own key (default `F7`).
 - **Buffered click info:** last click (PRESS / RELEASE), ticks saved, frames and milliseconds, total / average / maximum, and a short history.
+- **Orbs, pads and moving objects (v2.1):** the prediction now simulates yellow / pink / red / gravity / green / dash / spider orbs and pads, and reads **Move Triggers** (position-activated, with their duration and easing) to predict where moving spikes and blocks will be. Both can be turned off in the *Buffer* window (*Orbs & pads*, *Moving objs*) if something misbehaves in a level.
+  - Not modeled: move-to-target / lock-to-player / lock-to-camera / dynamic moves, touch- and spawn-triggered moves, rotate / follow / scale triggers, portals and speed changes inside the prediction. In those cases the buffer behaves as before.
 - **Custom colors:** the main color (blue by default) and the gray color (gray by default) can be changed with a built-in color wheel plus a brightness slider. A button restores the defaults.
 - **Language selector:** switch the whole menu between **English** (default) and **Español** from the *Interface* window.
 - **Short animations:** windows fold and unfold in a fraction of a second.
@@ -130,6 +132,8 @@ Menú dentro del juego, al estilo Mega Hack, para el mod de Geode **Predictive I
   - La fila del vehículo que estás jugando se resalta.
 - **Activar con un click:** la fila *Buffer activo* enciende y apaga el buffer con un solo click. Cuando está encendido, la fila se ilumina con el color principal. `F6` también funciona y puedes elegir tu propia tecla (por defecto `F7`).
 - **Información de clicks bufferizados:** último click (PRESS / RELEASE), ticks ahorrados, frames y milisegundos, total / media / máximo y un pequeño historial.
+- **Orbes, pads y objetos móviles (v2.1):** la predicción ahora simula orbes y pads (amarillo, rosa, rojo, gravedad, verde, dash, araña) y lee los **Move Trigger** (activados por posición, con su duración y easing) para saber dónde estarán los pinchos y bloques que se mueven. Se pueden desactivar en la ventana *Buffer* (*Orbes y pads*, *Obj. moviles*) si algo falla en un nivel.
+  - No se modela: mover a objetivo / bloqueo a jugador o cámara / movimiento dinámico, triggers por toque o spawn, rotar / seguir / escalar, portales ni cambios de velocidad dentro de la predicción. En esos casos el buffer funciona como antes.
 - **Colores personalizados:** el color principal (azul por defecto) y el color gris (gris por defecto) se cambian con una rueda de colores propia y un deslizador de brillo. Un botón restablece los valores por defecto.
 - **Selector de idioma:** cambia todo el menú entre **inglés** (por defecto) y **español** desde la ventana *Interfaz*.
 - **Animaciones cortas:** las ventanas se pliegan y se despliegan en una fracción de segundo.

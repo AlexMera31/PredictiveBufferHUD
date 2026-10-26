@@ -15,6 +15,8 @@ namespace pbuf {
         int32_t  last  = -1;        // ticks ahorrados en el ultimo click bufferizado (-1 = ninguno)
         uint8_t  press = 1;         // 1 = PRESS, 0 = RELEASE (del ultimo click bufferizado)
         uint32_t seq   = 0;         // contador: sube en cada click bufferizado (el HUD detecta eventos con esto)
+        uint8_t  orbs   = 1;        // 1 = el simulador tiene en cuenta orbes y pads
+        uint8_t  moving = 1;        // 1 = el simulador predice objetos movidos por Move Triggers
     };
 
     inline Shared g;

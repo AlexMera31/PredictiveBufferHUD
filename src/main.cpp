@@ -510,6 +510,8 @@ public:
         m_gray = ui::unpack(Mod::get()->getSavedValue<int>("ui-gray", ui::pack(ui::DEF_GRAY)));
         m_scaleIdx = std::clamp(Mod::get()->getSavedValue<int>("ui-scale", 1), 0, ui::SCALE_COUNT - 1);
         buf::loadTicks();
+        pbuf::g.orbs = Mod::get()->getSavedValue<bool>("sim-orbs", true) ? 1 : 0;
+        pbuf::g.moving = Mod::get()->getSavedValue<bool>("sim-moving", true) ? 1 : 0;
         m_keyMenu = Mod::get()->getSavedValue<int>("key-menu", VK_LCONTROL);
         m_keyToggle = Mod::get()->getSavedValue<int>("key-toggle", VK_F7);
         if (m_keyMenu <= 0 || m_keyMenu >= 0xFF) m_keyMenu = VK_LCONTROL;
@@ -537,6 +539,20 @@ public:
             };
             t.click = [this] { toggleBuffer(); };
             w.rows.push_back(t);
+            Row to; to.kind = Kind::Toggle; to.label = "Orbs & pads"; to.labelEs = "Orbes y pads";
+            to.on = [] { return pbuf::g.orbs != 0; };
+            to.click = [] {
+                pbuf::g.orbs ^= 1;
+                Mod::get()->setSavedValue<bool>("sim-orbs", pbuf::g.orbs != 0);
+            };
+            w.rows.push_back(to);
+            Row tm; tm.kind = Kind::Toggle; tm.label = "Moving objs"; tm.labelEs = "Obj. moviles";
+            tm.on = [] { return pbuf::g.moving != 0; };
+            tm.click = [] {
+                pbuf::g.moving ^= 1;
+                Mod::get()->setSavedValue<bool>("sim-moving", pbuf::g.moving != 0);
+            };
+            w.rows.push_back(tm);
             Row r1; r1.text = [this] {
                 if (!m_s.ok) return std::string(lang::tr("NO DATA (different DLL)", "SIN DATOS (DLL distinta)"));
                 int v = buf::currentVehicle();

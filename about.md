@@ -8,3 +8,4 @@ Predictive Input Buffer + menu dentro del juego, estilo Mega Hack, todo en un so
 - **Interfaz**: colores, escala, idioma y teclas.
 
 Ya no hace falta el mod `ai.predictivebuffer`: desinstalalo si lo tienes.
+- **Orbes, pads y objetos moviles** (v2.1): la prediccion simula orbes/pads y lee los Move Trigger para saber donde estaran los objetos que se mueven.
