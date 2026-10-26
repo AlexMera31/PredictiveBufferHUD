@@ -29,11 +29,9 @@ using namespace geode::prelude;
 // This keeps isolated micro-clicks and spike/sawblade dodges 100% protected!
 constexpr int SPAM_INTERVAL_TICKS = 8;
 
-// Zona alrededor del jugador (en unidades del juego) donde un orbe sin usar desactiva el buffer:
-// ORB_BEHIND = justo detras, ORB_AHEAD = por delante, ORB_DY = diferencia maxima de altura.
-constexpr double ORB_BEHIND = 40.0;
-constexpr double ORB_AHEAD = 150.0;
-constexpr double ORB_DY = 130.0;
+// Si la trayectoria del click pasa a menos de ORB_PATH_RADIUS unidades de un orbe sin usar (en X e Y),
+// el buffer NO actua en ese click (el click puede ser para el orbe). En cualquier otro caso el buffer funciona normal.
+constexpr double ORB_PATH_RADIUS = 55.0;
 constexpr int SPAM_STREAK_REQUIRED = 3;
 
 // ============================================================================
@@ -70,6 +68,21 @@ private:
     std::vector<Guard> m_guards;
     std::unordered_set<int> m_guardIds;
     std::unordered_set<int> m_simActivated;
+
+    // orbes candidatos (sin usar, dentro del alcance) y si la trayectoria simulada pasa por alguno
+    std::vector<GameObject*> m_pathOrbs;
+    bool m_orbOnPath = false;
+
+    void checkOrbPath(PlayerObject* p) {
+        if (m_orbOnPath || m_pathOrbs.empty() || !p) return;
+        double px = p->getPositionX(), py = p->getPositionY();
+        for (auto o : m_pathOrbs) {
+            if (std::abs(o->m_positionX - px) < ORB_PATH_RADIUS && std::abs(o->m_positionY - py) < ORB_PATH_RADIUS) {
+                m_orbOnPath = true;
+                return;
+            }
+        }
+    }
 
     PlayerObject* createTrajectoryPlayer() {
         PlayLayer* pl = PlayLayer::get();
@@ -231,6 +244,7 @@ public:
 
         releaseGuards(pl);
         if (plan && plan->on) plan->begin();
+        m_orbOnPath = false;
 
         m_simulating = true;
         m_simulationDead = false;
@@ -286,6 +300,8 @@ public:
                 m_simPlayer2->update(dt);
                 m_simPlayer2->updateRotation(dt);
             }
+            checkOrbPath(m_simPlayer1);
+            if (isDual && m_simPlayer2) checkOrbPath(m_simPlayer2);
             if (m_simulationDead) break;
 
             resetCollisionLog(m_simPlayer1);
@@ -414,15 +430,6 @@ public:
 
         m_queuedOpposite = false;
 
-        // Orbes: si hay un orbe sin usar cerca (delante o justo detras) el click puede ser para el orbe y la
-        // simulacion no es fiable para decidir que vas a morir "si o si". Se deja pasar el click tal cual.
-        if (pbuf::g.orbs && !motion::st.scanned) motion::scan(pl);
-        if (pbuf::g.orbs && (motion::orbNear(p1, ORB_BEHIND, ORB_AHEAD, ORB_DY) ||
-                             (isDual && p2 && motion::orbNear(p2, ORB_BEHIND, ORB_AHEAD, ORB_DY)))) {
-            m_gameHolding = push;
-            return true;
-        }
-
         // Full Show-Trajectory lookahead for Wave (65 ticks / 50 ticks Mini Wave)
         // so it sees spikes and sawblades 1-3 blocks ahead along the diagonal path!
         int targetHorizon = isMiniWave ? 50 : (isWave ? 65 : 160);
@@ -435,9 +442,31 @@ public:
         motion::Plan plan;
         plan.build(p1, targetHorizon + maxDelayFrames);
 
+        // Orbes candidatos para detectar si la trayectoria del click pasa por uno
+        m_pathOrbs.clear();
+        m_orbOnPath = false;
+        if (pbuf::g.orbs) {
+            double px = p1->getPositionX();
+            double reach = targetHorizon * 5.5 + 80.0;
+            for (auto o : motion::st.orbs) {
+                double ox = o->m_positionX;
+                if (ox < px - 80.0 || ox > px + reach) continue;
+                auto e = typeinfo_cast<EnhancedGameObject*>(o);
+                if (e && e->m_activatedByPlayer1 && !e->m_isMultiActivate) continue;   // ya gastado
+                m_pathOrbs.push_back(o);
+            }
+        }
+
         // 4. Check Frame 0 (immediate input) across the full trajectory horizon
         int ticksFrame0 = getSurvivalTicks(pl, p1, p2, isDual, 0, push, targetHorizon, &plan);
+        bool orbOnPath = m_orbOnPath;   // valido solo justo despues de la simulacion de frame 0
         if (ticksFrame0 >= targetHorizon) {
+            m_gameHolding = push;
+            return true;
+        }
+
+        // El click normal (frame 0) pasa por un orbe sin usar: no se interviene, el click puede ser para el orbe
+        if (orbOnPath) {
             m_gameHolding = push;
             return true;
         }
