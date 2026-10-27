@@ -98,7 +98,7 @@ CMakeLists.txt                    build configuration
 ### Troubleshooting
 
 - **The buffer does nothing / the game shows a conflict:** make sure the old `ai.predictivebuffer` mod is NOT installed next to this one; remove it and restart the game.
-- **I don't see the menu:** press `Left Ctrl` once; it may be hidden. Also check that both mods are enabled in Geode.
+- **I don't see the menu:** press `Left Ctrl` once; it may be hidden. Also check the mod is enabled in Geode.
 - **The buffer blocks or ignores a click near an orb / a moving object is predicted wrong:** turn off *Orbs & pads* or *Moving objs* in the *Buffer* window to compare. To tune how close a click's path must pass to an orb before the buffer skips it, change `ORB_PATH_RADIUS` in `src/PredictiveBuffer.cpp`.
 - **The menu is in the wrong language:** *Interface* window → *Language*. The choice is saved.
 - **A window ended up off-screen or in a bad place:** set the scale to a smaller value, or drag it back by its title bar. Windows are kept inside the screen when you release them.
@@ -215,7 +215,7 @@ CMakeLists.txt                    configuración de compilación
 ### Solución de problemas
 
 - **El buffer no hace nada / el juego avisa de un conflicto:** comprueba que el mod antiguo `ai.predictivebuffer` NO esté instalado junto a este; bórralo y reinicia el juego.
-- **No veo el menú:** pulsa `Ctrl izquierdo` una vez, puede estar oculto. Comprueba también que los dos mods estén activados en Geode.
+- **No veo el menú:** pulsa `Ctrl izquierdo` una vez, puede estar oculto. Comprueba también el mod esté activado en Geode.
 - **El buffer bloquea o ignora un click cerca de un orbe / un objeto móvil se predice mal:** desactiva *Orbes y pads* u *Obj. moviles* en la ventana *Buffer* para comparar. Para ajustar a qué distancia debe pasar la trayectoria de un click de un orbe para que el buffer se lo salte, cambia `ORB_PATH_RADIUS` en `src/PredictiveBuffer.cpp`.
 - **El menú está en otro idioma:** ventana *Interfaz* → *Idioma*. La elección se guarda.
 - **Una ventana quedó fuera de la pantalla o en mal sitio:** baja la escala o arrástrala de vuelta por su barra de título. Las ventanas se mantienen dentro de la pantalla al soltarlas.
