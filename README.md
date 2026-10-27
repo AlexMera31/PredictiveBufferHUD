@@ -20,8 +20,9 @@ An in-game, Mega Hack–style menu for the **Predictive Input Buffer** Geode mod
   - Steps: `0 → 2 → 4 → 8 → 16 → 24 → 32 → 48 → 54 → 60` (0 = no buffer for that vehicle).
   - The row of the vehicle you are currently playing is highlighted.
 - **Click to toggle:** the *Buffer active* row turns the buffer on and off with a single click. The row lights up in the main color when it is on. `F6` also works, and you can set your own key (default `F7`).
+- **Rebindable keys:** click the *L-Ctrl: hide menu* row in the *Interface* window, then press any key to change the menu key. The toggle key for the buffer can be changed the same way. Both are saved forever.
 - **Buffered click info:** last click (PRESS / RELEASE), ticks saved, frames and milliseconds, total / average / maximum, and a short history.
-- **Orbs, pads and moving objects (v2.1):** the prediction now simulates yellow / pink / red / gravity / green / dash / spider orbs and pads, and reads **Move Triggers** (position-activated, with their duration and easing) to predict where moving spikes and blocks will be. The buffer keeps working near orbs; it only skips a click when the click's own trajectory passes right through an unused orb (the click may be meant for it). Both can be turned off in the *Buffer* window (*Orbs & pads*, *Moving objs*) if something misbehaves in a level.
+- **Orbs, pads and moving objects (v2.0.2):** the prediction now simulates yellow / pink / red / gravity / green / dash / spider orbs and pads, and reads **Move Triggers** (position-activated, with their duration and easing) to predict where moving spikes and blocks will be. The buffer keeps working near orbs; it only skips a click when the click's own trajectory passes right through an unused orb (the click may be meant for it). Both can be turned off in the *Buffer* window (*Orbs & pads*, *Moving objs*) if something misbehaves in a level.
   - Not modeled: move-to-target / lock-to-player / lock-to-camera / dynamic moves, touch- and spawn-triggered moves, rotate / follow / scale triggers, portals and speed changes inside the prediction. In those cases the buffer behaves as before.
 - **Custom colors:** the main color (blue by default) and the gray color (gray by default) can be changed with a built-in color wheel plus a brightness slider. A button restores the defaults.
 - **Language selector:** switch the whole menu between **English** (default) and **Español** from the *Interface* window.
@@ -44,8 +45,10 @@ The mod contains the Predictive Input Buffer engine (by AlexMera) and the HUD in
 
 | Action | How |
 | --- | --- |
-| Show / hide the whole menu | `Left Ctrl` |
-| Turn the buffer on / off | Click *Buffer active* (or press `F6`) |
+| Show / hide the whole menu | `Left Ctrl` (changeable) |
+| Turn the buffer on / off | Click *Buffer active* (or press `F6` / your own key) |
+| Turn orbs & pads / moving objects prediction on / off | *Buffer* window → click *Orbs & pads* or *Moving objs* |
+| Change the menu key | *Interface* window → click the key row, then press the new key |
 | Change ticks for a vehicle | Click ▲ / ▼ next to the number in the *Ticks* window |
 | Move a window | Drag its title bar |
 | Fold / unfold a window | Click its title bar (without dragging) |
@@ -56,7 +59,7 @@ The mod contains the Predictive Input Buffer engine (by AlexMera) and the HUD in
 
 Windows:
 
-- **Buffer:** on/off, current vehicle, active ticks, level name and progress.
+- **Buffer:** on/off, *Orbs & pads* and *Moving objs* switches, current vehicle, active ticks, level name and progress.
 - **Ticks:** value for each vehicle.
 - **Buffered click:** last click, statistics and history.
 - **Interface:** colors, reset, scale and language.
@@ -69,7 +72,7 @@ Windows:
 2. Open the **Actions** tab and run **Build Predictive Buffer HUD** (it also runs on every push).
 3. When it finishes, download the `alexmera.predictivebufferhud` artifact. Inside is the `.geode` file.
 
-> The mod is built from `src/main.cpp` (HUD) and `src/PredictiveBuffer.cpp` (buffer engine); CMake compiles every `src/*.cpp`.
+> The mod is built from `src/main.cpp` (HUD) `src/PredictiveBuffer.cpp` (buffer engine) and `src/Motion.hpp` (orbs / moving objects); CMake compiles every `src/*.cpp`.
 
 **Locally:**
 
@@ -86,6 +89,7 @@ geode build
 src/main.cpp                      HUD source code (with English / Spanish texts)
 src/PredictiveBuffer.cpp          buffer engine (hooks and trajectory simulation)
 src/PredictiveBuffer.hpp          state shared between engine and HUD
+src/Motion.hpp                    Move Trigger reading and moving-object prediction
 mod.json                          Geode metadata
 CMakeLists.txt                    build configuration
 .github/workflows/build.yml       automatic build on GitHub
@@ -95,6 +99,7 @@ CMakeLists.txt                    build configuration
 
 - **The buffer does nothing / the game shows a conflict:** make sure the old `ai.predictivebuffer` mod is NOT installed next to this one; remove it and restart the game.
 - **I don't see the menu:** press `Left Ctrl` once; it may be hidden. Also check that both mods are enabled in Geode.
+- **The buffer blocks or ignores a click near an orb / a moving object is predicted wrong:** turn off *Orbs & pads* or *Moving objs* in the *Buffer* window to compare. To tune how close a click's path must pass to an orb before the buffer skips it, change `ORB_PATH_RADIUS` in `src/PredictiveBuffer.cpp`.
 - **The menu is in the wrong language:** *Interface* window → *Language*. The choice is saved.
 - **A window ended up off-screen or in a bad place:** set the scale to a smaller value, or drag it back by its title bar. Windows are kept inside the screen when you release them.
 - **The ticks I set in an older version are gone:** older versions stored them in Geode's settings; now they are stored by the menu itself (default value 4).
@@ -103,6 +108,7 @@ CMakeLists.txt                    build configuration
 ### Notes
 
 - Windows only.
+- The orb and moving-object prediction is new and still in testing; see the limits listed under *Features*.
 - Use at your own risk. Check the rules of any leaderboard or list before using a buffer mod on a record run.
 
 ### Credits
@@ -131,8 +137,9 @@ Menú dentro del juego, al estilo Mega Hack, para el mod de Geode **Predictive I
   - Escalones: `0 → 2 → 4 → 8 → 16 → 24 → 32 → 48 → 54 → 60` (0 = sin buffer en ese vehículo).
   - La fila del vehículo que estás jugando se resalta.
 - **Activar con un click:** la fila *Buffer activo* enciende y apaga el buffer con un solo click. Cuando está encendido, la fila se ilumina con el color principal. `F6` también funciona y puedes elegir tu propia tecla (por defecto `F7`).
+- **Teclas configurables:** haz click en la fila *L-Ctrl: ocultar menu* de la ventana *Interfaz* y pulsa cualquier tecla para cambiar la tecla del menú. La tecla para activar/desactivar el buffer se cambia igual. Ambas se guardan para siempre.
 - **Información de clicks bufferizados:** último click (PRESS / RELEASE), ticks ahorrados, frames y milisegundos, total / media / máximo y un pequeño historial.
-- **Orbes, pads y objetos móviles (v2.1):** la predicción ahora simula orbes y pads (amarillo, rosa, rojo, gravedad, verde, dash, araña) y lee los **Move Trigger** (activados por posición, con su duración y easing) para saber dónde estarán los pinchos y bloques que se mueven. El buffer sigue funcionando cerca de orbes; solo se salta un click cuando su propia trayectoria pasa justo por un orbe sin usar (el click puede ser para el orbe). Se pueden desactivar en la ventana *Buffer* (*Orbes y pads*, *Obj. moviles*) si algo falla en un nivel.
+- **Orbes, pads y objetos móviles (v2.0.2):** la predicción ahora simula orbes y pads (amarillo, rosa, rojo, gravedad, verde, dash, araña) y lee los **Move Trigger** (activados por posición, con su duración y easing) para saber dónde estarán los pinchos y bloques que se mueven. El buffer sigue funcionando cerca de orbes; solo se salta un click cuando su propia trayectoria pasa justo por un orbe sin usar (el click puede ser para el orbe). Se pueden desactivar en la ventana *Buffer* (*Orbes y pads*, *Obj. moviles*) si algo falla en un nivel.
   - No se modela: mover a objetivo / bloqueo a jugador o cámara / movimiento dinámico, triggers por toque o spawn, rotar / seguir / escalar, portales ni cambios de velocidad dentro de la predicción. En esos casos el buffer funciona como antes.
 - **Colores personalizados:** el color principal (azul por defecto) y el color gris (gris por defecto) se cambian con una rueda de colores propia y un deslizador de brillo. Un botón restablece los valores por defecto.
 - **Selector de idioma:** cambia todo el menú entre **inglés** (por defecto) y **español** desde la ventana *Interfaz*.
@@ -155,8 +162,10 @@ El mod contiene el motor del Predictive Input Buffer (de AlexMera) y el HUD en e
 
 | Acción | Cómo |
 | --- | --- |
-| Mostrar / ocultar todo el menú | `Ctrl izquierdo` |
-| Activar / desactivar el buffer | Click en *Buffer activo* (o pulsa `F6`) |
+| Mostrar / ocultar todo el menú | `Ctrl izquierdo` (configurable) |
+| Activar / desactivar el buffer | Click en *Buffer activo* (o pulsa `F6` / tu propia tecla) |
+| Activar / desactivar la predicción de orbes y pads / objetos móviles | Ventana *Buffer* → click en *Orbes y pads* o *Obj. moviles* |
+| Cambiar la tecla del menú | Ventana *Interfaz* → click en la fila de la tecla y pulsa la nueva |
 | Cambiar los ticks de un vehículo | Click en ▲ / ▼ junto al número en la ventana *Ticks* |
 | Mover una ventana | Arrastra su barra de título |
 | Plegar / desplegar una ventana | Click en su barra de título (sin arrastrar) |
@@ -167,7 +176,7 @@ El mod contiene el motor del Predictive Input Buffer (de AlexMera) y el HUD en e
 
 Ventanas:
 
-- **Buffer:** activar/desactivar, vehículo actual, ticks activos, nombre del nivel y progreso.
+- **Buffer:** activar/desactivar, interruptores *Orbes y pads* y *Obj. moviles*, vehículo actual, ticks activos, nombre del nivel y progreso.
 - **Ticks:** valor de cada vehículo.
 - **Click bufferizado:** último click, estadísticas e historial.
 - **Interfaz:** colores, restablecer, escala e idioma.
@@ -180,7 +189,7 @@ Ventanas:
 2. Abre la pestaña **Actions** y ejecuta **Build Predictive Buffer HUD** (también se ejecuta solo en cada push).
 3. Cuando termine, descarga el artefacto `alexmera.predictivebufferhud`. Dentro está el archivo `.geode`.
 
-> El mod se compila a partir de `src/main.cpp` (HUD) y `src/PredictiveBuffer.cpp` (motor del buffer); CMake compila todos los `src/*.cpp`.
+> El mod se compila a partir de `src/main.cpp` (HUD) `src/PredictiveBuffer.cpp` (motor del buffer) y `src/Motion.hpp` (orbes / objetos móviles); CMake compila todos los `src/*.cpp`.
 
 **En local:**
 
@@ -197,6 +206,7 @@ geode build
 src/main.cpp                      código fuente del HUD (con textos en inglés / español)
 src/PredictiveBuffer.cpp          motor del buffer (hooks y simulación de trayectoria)
 src/PredictiveBuffer.hpp          estado compartido entre motor y HUD
+src/Motion.hpp                    lectura de Move Trigger y predicción de objetos móviles
 mod.json                          datos del mod para Geode
 CMakeLists.txt                    configuración de compilación
 .github/workflows/build.yml       compilación automática en GitHub
@@ -206,6 +216,7 @@ CMakeLists.txt                    configuración de compilación
 
 - **El buffer no hace nada / el juego avisa de un conflicto:** comprueba que el mod antiguo `ai.predictivebuffer` NO esté instalado junto a este; bórralo y reinicia el juego.
 - **No veo el menú:** pulsa `Ctrl izquierdo` una vez, puede estar oculto. Comprueba también que los dos mods estén activados en Geode.
+- **El buffer bloquea o ignora un click cerca de un orbe / un objeto móvil se predice mal:** desactiva *Orbes y pads* u *Obj. moviles* en la ventana *Buffer* para comparar. Para ajustar a qué distancia debe pasar la trayectoria de un click de un orbe para que el buffer se lo salte, cambia `ORB_PATH_RADIUS` en `src/PredictiveBuffer.cpp`.
 - **El menú está en otro idioma:** ventana *Interfaz* → *Idioma*. La elección se guarda.
 - **Una ventana quedó fuera de la pantalla o en mal sitio:** baja la escala o arrástrala de vuelta por su barra de título. Las ventanas se mantienen dentro de la pantalla al soltarlas.
 - **Los ticks que puse en una versión anterior han desaparecido:** las versiones antiguas los guardaban en los ajustes de Geode; ahora los guarda el propio menú (valor por defecto 4).
@@ -214,6 +225,7 @@ CMakeLists.txt                    configuración de compilación
 ### Notas
 
 - Solo Windows.
+- La predicción de orbes y objetos móviles es nueva y sigue en pruebas; mira los límites indicados en *Características*.
 - Úsalo bajo tu responsabilidad. Revisa las reglas de cualquier lista o ranking antes de usar un mod de buffer en un récord.
 
 ### Créditos
