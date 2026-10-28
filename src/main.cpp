@@ -5,7 +5,18 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
-#include <Windows.h>
+#if defined(GEODE_IS_WINDOWS)
+    #include <Windows.h>
+    #define PB_KEYBOARD 1
+#else
+    // Android / iOS / macOS: no hay teclado que consultar. Estos valores solo se usan como identificadores guardados.
+    #define PB_KEYBOARD 0
+    #define VK_LCONTROL 0xA2
+    #define VK_F6 0x75
+    #define VK_F7 0x76
+    #define VK_ESCAPE 0x1B
+    #define VK_BACK 0x08
+#endif
 #include "PredictiveBuffer.hpp"
 #include <deque>
 #include <functional>
@@ -16,6 +27,13 @@
 #include <cstdint>
 
 using namespace geode::prelude;
+
+// Plataforma del binario: en Android / iOS la interfaz movil se activa sola (modo "Auto").
+#if defined(GEODE_IS_MOBILE)
+constexpr bool PB_NATIVE_MOBILE = true;
+#else
+constexpr bool PB_NATIVE_MOBILE = false;
+#endif
 
 namespace lang {
     static inline bool es = false; // false = English (default), true = Espanol
@@ -129,6 +147,11 @@ namespace ui {
     constexpr ccColor3B DEF_GRAY   = {72, 72, 72};     // gris por defecto
     constexpr float SCALES[] = {0.75f, 1.f, 1.25f, 1.5f, 2.f};
     constexpr int SCALE_COUNT = 5;
+    // interfaz movil: dedos en vez de raton, todo mas grande
+    constexpr float SCALES_M[] = {1.5f, 2.f, 2.5f, 3.f};
+    constexpr int SCALE_M_COUNT = 4;
+    constexpr float NAV_W = 62.f;     // ancho de la barra de pestanas (movil)
+    constexpr float FAB_R = 17.f;     // radio del boton flotante (movil)
 
     constexpr float PW = 104.f;      // ancho de la ventana de la rueda
     constexpr float PR = 38.f;       // radio de la rueda
@@ -210,6 +233,7 @@ static std::string ticksInfo(int t) {
 }
 
 // Nombre legible de una tecla virtual de Windows.
+#if PB_KEYBOARD
 static std::string keyName(int vk) {
     switch (vk) {
         case 0: return lang::tr("None", "Ninguna");
@@ -237,6 +261,9 @@ static std::string keyName(int vk) {
     if (sc != 0 && GetKeyNameTextA(lp, name, sizeof(name)) > 0) return name;
     return fmt::format("Key {:#x}", vk);
 }
+#else
+static std::string keyName(int) { return "-"; }
+#endif
 
 class BufferHud : public CCNode, public CCTouchDelegate {
 protected:
@@ -299,6 +326,23 @@ protected:
     CCPoint m_dragTouch0, m_dragWin0;
 
     bool  m_shown = true;
+
+    // ---- movil ----
+    CCNode* m_winsRoot = nullptr;            // contiene todas las ventanas (se escala y se oculta con el menu)
+    CCNode* m_fabNode = nullptr;             // boton flotante PB (solo interfaz movil)
+    CCDrawNode* m_fabGfx = nullptr;
+    CCLabelBMFont* m_fabLbl = nullptr;
+    bool  m_mobile = false;                  // interfaz movil activa
+    int   m_uiMode = 0;                      // 0 = auto (segun la plataforma), 1 = PC, 2 = movil
+    int   m_tab = 0;                         // pestana activa (interfaz movil)
+    bool  m_pickOpen = false;                // la rueda de color esta abierta
+    bool  m_rebuildPending = false;          // reconstruir la interfaz en el siguiente frame
+    CCPoint m_fabPos = ccp(-1.f, -1.f);      // negativo = posicion por defecto (arriba a la derecha)
+    bool  m_fabTouch = false, m_fabMoved = false, m_fabLong = false;
+    CCTouch* m_fabTouchPtr = nullptr;
+    CCPoint m_fabStart = ccp(0.f, 0.f), m_fabOff = ccp(0.f, 0.f);
+    float m_fabT0 = 0.f;
+    uint64_t m_fabSig = 0;
     int   m_keyMenu = VK_LCONTROL;           // tecla para mostrar / ocultar el menu
     int   m_keyToggle = VK_F7;               // tecla para activar / desactivar el buffer (0 = ninguna)
     int   m_listen = 0;                      // 0 = nada, 1 = esperando tecla del menu, 2 = tecla del buffer
@@ -315,11 +359,15 @@ protected:
     buf::State m_s;
 
     static bool gdFocused() {
+#if PB_KEYBOARD
         HWND fg = GetForegroundWindow();
         if (!fg) return false;
         DWORD pid = 0;
         GetWindowThreadProcessId(fg, &pid);
         return pid == GetCurrentProcessId();
+#else
+        return false;
+#endif
     }
 
     static void setText(CCLabelBMFont* l, std::string const& s) {
@@ -390,6 +438,8 @@ public:
         m_editing = which;
         ui::rgb2hsv(which == 0 ? m_accent : m_gray, m_pH, m_pS, m_pV);
         w.hidden = false;
+        m_pickOpen = true;
+        applyMobileTabs();                 // en movil la rueda sustituye a la ventana de contenido
         w.node->setVisible(true);          // la animacion la va desplegando
         w.node->setZOrder(++m_topZ);
         redrawPicker();
@@ -399,6 +449,8 @@ public:
         if (m_pickIdx < 0) return;
         auto& w = m_wins[m_pickIdx];
         w.hidden = true;                   // la animacion la pliega y luego se oculta
+        m_pickOpen = false;
+        applyMobileTabs();
     }
 
     // dibuja el deslizador de brillo y las marcas (se llama al abrir y al cambiar el color)
@@ -451,21 +503,96 @@ public:
 
     // ---------------- teclas ----------------
     static bool keyDown(int vk) {
+#if PB_KEYBOARD
         return vk != 0 && gdFocused() && (GetAsyncKeyState(vk) & 0x8000);
+#else
+        (void)vk;
+        return false;
+#endif
     }
 
     // primera tecla del teclado que esta pulsada (ignora el raton y los modificadores genericos)
     static int scanKey() {
+#if PB_KEYBOARD
         for (int vk = 0x08; vk < 0xFF; vk++) {
             if (vk == VK_SHIFT || vk == VK_CONTROL || vk == VK_MENU) continue;
             if (GetAsyncKeyState(vk) & 0x8000) return vk;
         }
+#endif
         return 0;
     }
 
     void startListen(int which) {
         m_listen = (m_listen == which) ? 0 : which;   // segundo click en la misma fila: cancelar
         m_listenArmed = false;
+    }
+
+    // ---------------- interfaz movil / PC ----------------
+    bool wantMobile() const { return m_uiMode == 2 || (m_uiMode == 0 && PB_NATIVE_MOBILE); }
+    float curScale() const { return m_mobile ? ui::SCALES_M[m_scaleIdx] : ui::SCALES[m_scaleIdx]; }
+    int scaleCount() const { return m_mobile ? ui::SCALE_M_COUNT : ui::SCALE_COUNT; }
+
+    void setShown(bool v) {
+        m_shown = v;
+        Mod::get()->setSavedValue("hud-visible", m_shown);
+        if (m_winsRoot) m_winsRoot->setVisible(m_shown);
+        if (!m_shown) { m_drag = -1; m_pickMode = 0; m_pickWin = -1; }
+        else for (auto& w : m_wins) w.anim = 0.f;          // al mostrar el menu las ventanas se despliegan
+    }
+
+    // Pestanas (movil): una sola ventana de contenido a la vez; la rueda de color la sustituye mientras esta abierta
+    void applyMobileTabs() {
+        if (!m_mobile) return;
+        for (int i = 0; i < 4 && i < static_cast<int>(m_wins.size()); i++) m_wins[i].hidden = !(i == m_tab && !m_pickOpen);
+        if (m_pickIdx >= 0 && m_pickIdx < static_cast<int>(m_wins.size())) m_wins[m_pickIdx].hidden = !m_pickOpen;
+    }
+
+    void setupMode() {
+        m_rebuildPending = false;
+        m_listen = 0; m_drag = -1; m_pickMode = 0; m_pickWin = -1; m_pickIdx = -1; m_pickOpen = false;
+        m_fabTouch = false; m_fabTouchPtr = nullptr;
+        m_winsRoot->removeAllChildren();
+        m_wins.clear();
+        m_mobile = wantMobile();
+        m_scaleIdx = m_mobile
+            ? std::clamp(Mod::get()->getSavedValue<int>("ui-scale-m", 1), 0, ui::SCALE_M_COUNT - 1)
+            : std::clamp(Mod::get()->getSavedValue<int>("ui-scale", 1), 0, ui::SCALE_COUNT - 1);
+        buildWindows();
+        buildFab();
+        m_winsRoot->setVisible(m_shown);
+        m_fabNode->setVisible(m_mobile);
+    }
+
+    // Boton flotante "PB": toque = mostrar / ocultar el menu, mantener = buffer ON/OFF, arrastrar = moverlo
+    void buildFab() {
+        m_fabNode->removeAllChildren();
+        m_fabGfx = nullptr; m_fabLbl = nullptr; m_fabSig = 0;
+        if (!m_mobile) return;
+        auto win = CCDirector::get()->getWinSize();
+        if (m_fabPos.x < 0.f || m_fabPos.y < 0.f) m_fabPos = ccp(win.width - 28.f, win.height - 28.f);
+        m_fabPos = ccp(std::clamp(m_fabPos.x, ui::FAB_R, std::max(ui::FAB_R, win.width - ui::FAB_R)),
+                       std::clamp(m_fabPos.y, ui::FAB_R, std::max(ui::FAB_R, win.height - ui::FAB_R)));
+        m_fabNode->setPosition(m_fabPos);
+        m_fabGfx = CCDrawNode::create();
+        m_fabNode->addChild(m_fabGfx, 0);
+        m_fabLbl = makeLabel(m_fabNode, "PB", 0.f, 0.f, {0.5f, 0.5f}, 0.55f);
+        updateFab();
+    }
+
+    void updateFab() {
+        if (!m_fabGfx) return;
+        bool on = m_s.idx != buf::OFF_IDX;
+        uint64_t sig = 1469598103934665603ull;
+        auto mixs = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
+        mixs(ui::pack(m_accent)); mixs(ui::pack(m_gray)); mixs(on ? 1 : 0); mixs(m_shown ? 1 : 0);
+        if (sig == m_fabSig) return;
+        m_fabSig = sig;
+        m_fabGfx->clear();
+        float a = m_shown ? 1.f : 0.72f;                           // casi transparente cuando el menu esta oculto
+        ccColor3B ring = on ? m_accent : ccc3(220, 60, 60);        // anillo: acento = buffer ON, rojo = OFF
+        ccColor3B fill = m_shown ? m_accent : m_gray;
+        m_fabGfx->drawDot(ccp(0.f, 0.f), ui::FAB_R + 2.f, ccc4f(ring.r / 255.f, ring.g / 255.f, ring.b / 255.f, a));
+        m_fabGfx->drawDot(ccp(0.f, 0.f), ui::FAB_R - 1.f, ccc4f(fill.r / 255.f, fill.g / 255.f, fill.b / 255.f, a));
     }
 
     void toggleBuffer() {
@@ -505,10 +632,14 @@ public:
     bool init() override {
         if (!CCNode::init()) return false;
         lang::load();
-        m_shown = Mod::get()->getSavedValue<bool>("hud-visible", true);
+        // en movil el menu empieza oculto (se abre con el boton PB); en PC, visible
+        m_shown = Mod::get()->getSavedValue<bool>("hud-visible", !PB_NATIVE_MOBILE);
+        m_uiMode = std::clamp(Mod::get()->getSavedValue<int>("ui-mode", 0), 0, 2);
+        m_tab = std::clamp(Mod::get()->getSavedValue<int>("ui-tab", 0), 0, 3);
+        m_fabPos = ccp(static_cast<float>(Mod::get()->getSavedValue<int>("fab-x", -1)),
+                       static_cast<float>(Mod::get()->getSavedValue<int>("fab-y", -1)));
         m_accent = ui::unpack(Mod::get()->getSavedValue<int>("ui-accent", ui::pack(ui::DEF_ACCENT)));
         m_gray = ui::unpack(Mod::get()->getSavedValue<int>("ui-gray", ui::pack(ui::DEF_GRAY)));
-        m_scaleIdx = std::clamp(Mod::get()->getSavedValue<int>("ui-scale", 1), 0, ui::SCALE_COUNT - 1);
         buf::loadTicks();
         pbuf::g.orbs = Mod::get()->getSavedValue<bool>("sim-orbs", true) ? 1 : 0;
         pbuf::g.moving = Mod::get()->getSavedValue<bool>("sim-moving", true) ? 1 : 0;
@@ -519,8 +650,11 @@ public:
         auto s = buf::read();
         m_prevSeq = s.seq;
         m_prevIdx = s.ok ? s.idx : 0;
-        buildWindows();
-        this->setVisible(m_shown);
+        m_winsRoot = CCNode::create();
+        this->addChild(m_winsRoot, 0);
+        m_fabNode = CCNode::create();
+        this->addChild(m_fabNode, 10);
+        setupMode();
         return true;
     }
 
@@ -534,7 +668,7 @@ public:
                 bool on = m_s.ok && m_s.idx != buf::OFF_IDX;
                 std::string r = on ? lang::tr("Buffer: ON", "Buffer: ACTIVADO")
                                    : lang::tr("Buffer: OFF", "Buffer: DESACTIVADO");
-                if (m_keyToggle) r += " [" + keyName(m_keyToggle) + "]";
+                if (PB_KEYBOARD && !m_mobile && m_keyToggle) r += " [" + keyName(m_keyToggle) + "]";
                 return r;
             };
             t.click = [this] { toggleBuffer(); };
@@ -649,33 +783,59 @@ public:
             rs.click = [this] { setAccent(ui::DEF_ACCENT); setGray(ui::DEF_GRAY); };
             w.rows.push_back(rs);
             Row sc; sc.kind = Kind::Stepper; sc.label = "Scale"; sc.labelEs = "Escala";
-            sc.value = [this] { return fmt::format("{:g}x", ui::SCALES[m_scaleIdx]); };
+            sc.value = [this] { return fmt::format("{:g}x", curScale()); };
             sc.step = [this](int d) {
-                m_scaleIdx = std::clamp(m_scaleIdx + d, 0, ui::SCALE_COUNT - 1);
-                Mod::get()->setSavedValue<int>("ui-scale", m_scaleIdx);
+                m_scaleIdx = std::clamp(m_scaleIdx + d, 0, scaleCount() - 1);
+                Mod::get()->setSavedValue<int>(m_mobile ? "ui-scale-m" : "ui-scale", m_scaleIdx);
             };
             w.rows.push_back(sc);
             Row lg; lg.kind = Kind::Button; lg.label = "Language: English"; lg.labelEs = "Idioma: Espanol";
             lg.click = [] { lang::toggle(); };
             w.rows.push_back(lg);
+            // modo de interfaz: Auto (segun la plataforma) -> PC -> Movil. Sirve tambien para probar la interfaz movil en PC.
+            Row um; um.kind = Kind::Button;
+            um.text = [this] {
+                char const* n = m_uiMode == 0 ? "Auto" : (m_uiMode == 1 ? "PC" : lang::tr("Mobile", "Movil"));
+                std::string r = std::string(lang::tr("UI: ", "Interfaz: ")) + n;
+                if (m_uiMode == 0) r += m_mobile ? lang::tr(" (mobile)", " (movil)") : " (PC)";
+                return r;
+            };
+            um.click = [this] {
+                m_uiMode = (m_uiMode + 1) % 3;
+                Mod::get()->setSavedValue<int>("ui-mode", m_uiMode);
+                m_rebuildPending = true;           // se reconstruye en el siguiente frame (no dentro del propio click)
+            };
+            w.rows.push_back(um);
             Row wm; wm.text = [] { return std::string("HUD by AlexMera"); };
             w.rows.push_back(wm);
-            Row kMenu; kMenu.kind = Kind::Button;
-            kMenu.on = [this] { return m_listen == 1; };
-            kMenu.text = [this] {
-                if (m_listen == 1) return std::string(lang::tr("Press a key... (Esc: cancel)", "Pulsa una tecla... (Esc: cancelar)"));
-                return keyName(m_keyMenu) + std::string(lang::tr(": hide menu (click to change)", ": ocultar menu (click para cambiar)"));
-            };
-            kMenu.click = [this] { startListen(1); };
-            w.rows.push_back(kMenu);
-            Row kTog; kTog.kind = Kind::Button;
-            kTog.on = [this] { return m_listen == 2; };
-            kTog.text = [this] {
-                if (m_listen == 2) return std::string(lang::tr("Press a key... (Esc: cancel, Bksp: none)", "Pulsa una tecla... (Esc: cancelar, Bksp: ninguna)"));
-                return keyName(m_keyToggle) + std::string(lang::tr(": toggle buffer (click to change)", ": activar buffer (click para cambiar)"));
-            };
-            kTog.click = [this] { startListen(2); };
-            w.rows.push_back(kTog);
+            if (m_mobile) {
+                Row h1; h1.text = [] { return std::string(lang::tr("PB button: tap = menu", "Boton PB: toque = menu")); };
+                w.rows.push_back(h1);
+                Row h2; h2.text = [] { return std::string(lang::tr("hold = buffer ON/OFF", "mantener = buffer ON/OFF")); };
+                w.rows.push_back(h2);
+                Row h3; h3.text = [] { return std::string(lang::tr("drag = move the button", "arrastrar = mover el boton")); };
+                w.rows.push_back(h3);
+            }
+#if PB_KEYBOARD
+            if (!m_mobile) {
+                Row kMenu; kMenu.kind = Kind::Button;
+                kMenu.on = [this] { return m_listen == 1; };
+                kMenu.text = [this] {
+                    if (m_listen == 1) return std::string(lang::tr("Press a key... (Esc: cancel)", "Pulsa una tecla... (Esc: cancelar)"));
+                    return keyName(m_keyMenu) + std::string(lang::tr(": hide menu (click to change)", ": ocultar menu (click para cambiar)"));
+                };
+                kMenu.click = [this] { startListen(1); };
+                w.rows.push_back(kMenu);
+                Row kTog; kTog.kind = Kind::Button;
+                kTog.on = [this] { return m_listen == 2; };
+                kTog.text = [this] {
+                    if (m_listen == 2) return std::string(lang::tr("Press a key... (Esc: cancel, Bksp: none)", "Pulsa una tecla... (Esc: cancelar, Bksp: ninguna)"));
+                    return keyName(m_keyToggle) + std::string(lang::tr(": toggle buffer (click to change)", ": activar buffer (click para cambiar)"));
+                };
+                kTog.click = [this] { startListen(2); };
+                w.rows.push_back(kTog);
+            }
+#endif
             m_wins.push_back(std::move(w));
         }
         // ---- Window 5: color wheel (hidden until a color is clicked) ----
@@ -694,6 +854,38 @@ public:
             m_wins.push_back(std::move(w));
         }
 
+        if (m_mobile) {
+            // Interfaz movil: barra de navegacion a la izquierda + UNA ventana de contenido a la derecha
+            Win nav; nav.title = "Menu"; nav.titleEs = "Menu"; nav.key = "nav"; nav.w = ui::NAV_W;
+            Row q; q.kind = Kind::Toggle; q.label = "ON / OFF"; q.labelEs = "ON / OFF";
+            q.on = [this] { return m_s.ok && m_s.idx != buf::OFF_IDX; };
+            q.click = [this] { toggleBuffer(); };
+            nav.rows.push_back(q);
+            static constexpr char const* TABS[4]    = {"Buffer", "Ticks", "Clicks", "UI"};
+            static constexpr char const* TABS_ES[4] = {"Buffer", "Ticks", "Clicks", "Interfaz"};
+            for (int i = 0; i < 4; i++) {
+                Row r; r.kind = Kind::Button; r.label = TABS[i]; r.labelEs = TABS_ES[i];
+                r.on = [this, i] { return m_tab == i; };
+                r.click = [this, i] {
+                    m_tab = i;
+                    m_pickOpen = false;                        // cambiar de pestana cierra la rueda de color
+                    Mod::get()->setSavedValue<int>("ui-tab", i);
+                    applyMobileTabs();
+                };
+                nav.rows.push_back(r);
+            }
+            m_wins.push_back(std::move(nav));
+
+            // posiciones fijas (las ventanas no se arrastran ni se pliegan en movil)
+            float cx = 4.f + ui::NAV_W + 4.f;
+            for (auto& w : m_wins) {
+                w.collapsed = false;
+                w.y = 4.f;
+                w.x = (w.key == "nav") ? 4.f : cx;
+            }
+            applyMobileTabs();
+        }
+
         for (int i = 0; i < static_cast<int>(m_wins.size()); i++) buildNodes(m_wins[i], i);
     }
 
@@ -709,13 +901,15 @@ public:
 
     void buildNodes(Win& w, int wi) {
         // posicion/estado guardados
-        w.x = static_cast<float>(Mod::get()->getSavedValue<int>("wx-" + w.key, static_cast<int>(w.x)));
-        w.y = static_cast<float>(Mod::get()->getSavedValue<int>("wy-" + w.key, static_cast<int>(w.y)));
-        w.collapsed = Mod::get()->getSavedValue<bool>("wc-" + w.key, false);
+        if (!m_mobile) {
+            w.x = static_cast<float>(Mod::get()->getSavedValue<int>("wx-" + w.key, static_cast<int>(w.x)));
+            w.y = static_cast<float>(Mod::get()->getSavedValue<int>("wy-" + w.key, static_cast<int>(w.y)));
+            w.collapsed = Mod::get()->getSavedValue<bool>("wc-" + w.key, false);
+        }
 
         w.node = CCNode::create();
         w.node->setPosition(ccp(w.x, -w.y));
-        this->addChild(w.node, wi);
+        m_winsRoot->addChild(w.node, wi);
 
         w.frame = CCDrawNode::create();
         w.node->addChild(w.frame, 0);
@@ -881,9 +1075,22 @@ public:
 
     // ---------------- raton ----------------
     bool ccTouchBegan(CCTouch* t, CCEvent*) override {
-        if (!m_shown || !this->isVisible()) return false;
+        // boton flotante PB (movil): funciona aunque el menu este oculto
+        if (m_mobile && m_fabNode && m_fabNode->isVisible() && !m_fabTouch) {
+            auto fp = this->convertToNodeSpace(t->getLocation());
+            float fx = fp.x - m_fabPos.x, fy = fp.y - m_fabPos.y, rr = ui::FAB_R + 8.f;   // margen extra para el dedo
+            if (fx * fx + fy * fy <= rr * rr) {
+                m_fabTouch = true; m_fabMoved = false; m_fabLong = false;
+                m_fabTouchPtr = t;
+                m_fabStart = fp;
+                m_fabOff = ccp(m_fabPos.x - fp.x, m_fabPos.y - fp.y);
+                m_fabT0 = m_time;
+                return true;
+            }
+        }
+        if (!m_shown || !m_winsRoot || !m_winsRoot->isVisible()) return false;
         m_pickMode = 0; m_pickWin = -1; m_drag = -1;
-        auto p = this->convertToNodeSpace(t->getLocation());
+        auto p = m_winsRoot->convertToNodeSpace(t->getLocation());
         // de la ventana de mas arriba a la de mas abajo
         std::vector<int> order(m_wins.size());
         for (size_t i = 0; i < order.size(); i++) order[i] = static_cast<int>(i);
@@ -897,6 +1104,7 @@ public:
 
             w.node->setZOrder(++m_topZ);     // traer al frente
             if (d < ui::TITLE_H) {
+                if (m_mobile) return true;        // en movil las ventanas son fijas (pestanas): la barra no se arrastra
                 m_drag = i;
                 m_dragMoved = false;
                 m_dragTouch0 = p;
@@ -940,14 +1148,25 @@ public:
     }
 
     void ccTouchMoved(CCTouch* t, CCEvent*) override {
+        if (m_fabTouch && t == m_fabTouchPtr) {
+            auto fp = this->convertToNodeSpace(t->getLocation());
+            if (!m_fabMoved && std::abs(fp.x - m_fabStart.x) + std::abs(fp.y - m_fabStart.y) > 8.f) m_fabMoved = true;
+            if (m_fabMoved) {
+                auto win = CCDirector::get()->getWinSize();
+                m_fabPos = ccp(std::clamp(fp.x + m_fabOff.x, ui::FAB_R, std::max(ui::FAB_R, win.width - ui::FAB_R)),
+                               std::clamp(fp.y + m_fabOff.y, ui::FAB_R, std::max(ui::FAB_R, win.height - ui::FAB_R)));
+                m_fabNode->setPosition(m_fabPos);
+            }
+            return;
+        }
         if (m_pickMode != 0 && m_pickWin >= 0) {
-            auto pp = this->convertToNodeSpace(t->getLocation());
+            auto pp = m_winsRoot->convertToNodeSpace(t->getLocation());
             auto& pw = m_wins[m_pickWin];
             applyPick(pw, pp.x - pw.x, -(pp.y + pw.y));
             return;
         }
         if (m_drag < 0) return;
-        auto p = this->convertToNodeSpace(t->getLocation());
+        auto p = m_winsRoot->convertToNodeSpace(t->getLocation());
         auto& w = m_wins[m_drag];
         float dx = p.x - m_dragTouch0.x, dy = p.y - m_dragTouch0.y;
         if (std::abs(dx) + std::abs(dy) > 2.f) m_dragMoved = true;
@@ -957,7 +1176,17 @@ public:
         w.node->setPosition({w.x, -w.y});
     }
 
-    void ccTouchEnded(CCTouch*, CCEvent*) override {
+    void ccTouchEnded(CCTouch* t, CCEvent*) override {
+        if (m_fabTouch && t == m_fabTouchPtr) {
+            m_fabTouch = false; m_fabTouchPtr = nullptr;
+            if (m_fabMoved) {                                       // arrastre: se guarda la posicion del boton
+                Mod::get()->setSavedValue<int>("fab-x", static_cast<int>(m_fabPos.x));
+                Mod::get()->setSavedValue<int>("fab-y", static_cast<int>(m_fabPos.y));
+            } else if (!m_fabLong) {
+                setShown(!m_shown);                                 // toque corto: mostrar / ocultar el menu
+            }
+            return;
+        }
         if (m_pickMode != 0) { m_pickMode = 0; m_pickWin = -1; return; }
         if (m_drag < 0) return;
         auto& w = m_wins[m_drag];
@@ -966,7 +1195,7 @@ public:
             Mod::get()->setSavedValue<bool>("wc-" + w.key, w.collapsed);
         } else {
             auto win = CCDirector::get()->getWinSize();
-            float sc = ui::SCALES[m_scaleIdx];
+            float sc = curScale();
             w.x = std::clamp(w.x, 0.f, std::max(0.f, win.width / sc - w.w));
             w.y = std::clamp(w.y, 0.f, std::max(0.f, win.height / sc - ui::TITLE_H));
             w.node->setPosition({w.x, -w.y});
@@ -976,14 +1205,17 @@ public:
         m_drag = -1;
     }
 
-    void ccTouchCancelled(CCTouch*, CCEvent*) override { m_drag = -1; m_pickMode = 0; m_pickWin = -1; }
+    void ccTouchCancelled(CCTouch* t, CCEvent*) override {
+        if (m_fabTouch && t == m_fabTouchPtr) { m_fabTouch = false; m_fabTouchPtr = nullptr; return; }
+        m_drag = -1; m_pickMode = 0; m_pickWin = -1;
+    }
 
     // ---------------- actualizacion por frame ----------------
     void refresh() {
         auto win = CCDirector::get()->getWinSize();
-        float sc = ui::SCALES[m_scaleIdx];
-        this->setScale(sc);
-        this->setPosition(ccp(0.f, win.height));
+        float sc = curScale();
+        m_winsRoot->setScale(sc);
+        m_winsRoot->setPosition(ccp(0.f, win.height));
 
         for (auto& w : m_wins) {
             // idioma: actualiza titulo y etiquetas fijas
@@ -1026,6 +1258,7 @@ public:
 
     void tick(float dt) {
         m_time += dt;
+        if (m_rebuildPending) setupMode();         // cambio de modo de interfaz (Auto / PC / Movil)
 
         if (m_listen != 0 && !m_shown) m_listen = 0;
         if (m_listen != 0) {
@@ -1033,12 +1266,7 @@ public:
         } else {
             // tecla del menu: mostrar / ocultar todo el menu
             bool down = keyDown(m_keyMenu);
-            if (down && !m_menuWasDown) {
-                m_shown = !m_shown;
-                Mod::get()->setSavedValue("hud-visible", m_shown);
-                this->setVisible(m_shown);
-                if (m_shown) for (auto& w : m_wins) w.anim = 0.f;   // al mostrar el menu las ventanas se despliegan
-            }
+            if (down && !m_menuWasDown) setShown(!m_shown);
             m_menuWasDown = down;
         }
 
@@ -1074,6 +1302,15 @@ public:
                 if (m_s.last > 0) pushEvent(m_s.last, m_s.press);
                 m_prevSeq = m_s.seq;
             }
+        }
+
+        // boton flotante (movil): mantener pulsado = buffer ON/OFF
+        if (m_mobile) {
+            if (m_fabTouch && !m_fabMoved && !m_fabLong && m_time - m_fabT0 >= 0.6f) {
+                m_fabLong = true;
+                toggleBuffer();
+            }
+            updateFab();
         }
 
         if (m_shown) { refresh(); animateWindows(dt); }

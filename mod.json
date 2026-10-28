@@ -1,13 +1,14 @@
 {
 	"geode": "5.11.2",
 	"gd": {
-		"win": "2.2081"
+		"win": "2.2081",
+		"android": "2.2081"
 	},
-	"version": "v2.0.2",
+	"version": "v2.2.0",
 	"id": "alexmera.predictivebufferhud",
 	"name": "Predictive Buffer HUD",
 	"developer": "AlexMera",
-	"description": "Predictive Input Buffer + menu estilo Mega Hack dentro del juego (L-Ctrl para ocultar/mostrar) con ticks de buffer por vehiculo, colores personalizables e info de clicks. Todo en un solo mod.",
+	"description": "Predictive Input Buffer + menu estilo Mega Hack dentro del juego. PC: L-Ctrl para ocultar/mostrar. Movil (Android): boton flotante PB con pestanas tactiles. Ticks de buffer por vehiculo, colores personalizables e info de clicks. Todo en un solo mod.",
 	"incompatibilities": {
 		"ai.predictivebuffer": {
 			"version": "*",
